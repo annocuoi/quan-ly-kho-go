@@ -91,10 +91,7 @@ if st.session_state.page == "dashboard":
     dashboard()
 
 elif st.session_state.page == "loaigo":
-
-    st.header("🪵 Loại gỗ")
-
-    st.write("TEST")
+    loai_go()
 
 elif st.session_state.page == "nhap":
     nhap_kho()

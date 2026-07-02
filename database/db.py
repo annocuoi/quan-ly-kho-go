@@ -1065,7 +1065,7 @@ def lay_ds_trong_tat_ca_ham():
 
     ds = cur.fetchall()
 
-    conn.close()
+    close_connection(conn)
 
     return ds
 
