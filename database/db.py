@@ -1380,3 +1380,378 @@ def lay_kho_kho(
     close_connection(conn)
 
     return data
+
+# =========================
+# PHÂN LOẠI GỖ
+# =========================
+
+def lay_ds_phan_loai_go():
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT *
+        FROM phan_loai_go
+        WHERE hien_thi=TRUE
+        ORDER BY ten
+    """)
+
+    data = cur.fetchall()
+
+    close_connection(conn)
+
+    return data
+
+
+def them_phan_loai_go(
+    ten
+):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        INSERT INTO phan_loai_go(
+            ten
+        )
+        VALUES(%s)
+    """, (
+        ten,
+    ))
+
+    conn.commit()
+
+    close_connection(conn)
+
+
+def sua_phan_loai_go(
+    id,
+    ten
+):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        UPDATE phan_loai_go
+
+        SET
+            ten=%s
+
+        WHERE id=%s
+    """, (
+        ten,
+        id
+    ))
+
+    conn.commit()
+
+    close_connection(conn)
+
+
+def xoa_phan_loai_go(id):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        UPDATE phan_loai_go
+        SET hien_thi=FALSE
+        WHERE id=%s
+    """, (id,))
+
+    conn.commit()
+
+    close_connection(conn)
+
+def lay_ds_phan_loai():
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT
+            id,
+            ten
+        FROM phan_loai_go
+        WHERE hien_thi=TRUE
+        ORDER BY ten
+    """)
+
+    data = cur.fetchall()
+
+    close_connection(conn)
+
+    return data
+
+def luu_phan_loai(
+    kho_kho_id,
+    ds_phan_loai
+):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    try:
+
+        # Lấy ham_say_id
+        cur.execute("""
+            SELECT ham_say_id
+            FROM kho_kho
+            WHERE id=%s
+        """, (kho_kho_id,))
+
+        row = cur.fetchone()
+
+        if row is None:
+            raise Exception("Không tìm thấy kho.")
+
+        ham_say_id = row["ham_say_id"]
+
+        tong_thanh = 0
+        tong_kg = 0
+        tong_m3 = 0
+
+        # Lưu từng dòng phân loại
+        for item in ds_phan_loai:
+
+            cur.execute("""
+                SELECT id
+                FROM phan_loai_go
+                WHERE ten=%s
+            """, (
+                item["loai"],
+            ))
+
+            row = cur.fetchone()
+
+            if row is None:
+                raise Exception(f"Không tìm thấy phân loại: {item['loai']}")
+
+            phan_loai_go_id = row["id"]
+
+            cur.execute("""
+                INSERT INTO kho_phan_loai(
+
+                    kho_kho_id,
+                    phan_loai_go_id,
+                    kg,
+                    thanh,
+                    m3
+
+                )
+                VALUES(
+                    %s,%s,%s,%s,%s
+                )
+            """, (
+
+                kho_kho_id,
+                phan_loai_go_id,
+
+                item.get("kg"),
+                item.get("thanh"),
+                item.get("m3")
+
+            ))
+
+            tong_kg += item.get("kg", 0)
+            tong_thanh += item.get("thanh", 0)
+            tong_m3 += item.get("m3", 0)
+
+        # Lấy kiểu tính
+        cur.execute("""
+            SELECT lg.kieu_tinh
+            FROM ham_say hs
+
+            JOIN chi_tiet_phieu_nhap ct
+                ON hs.chi_tiet_phieu_nhap_id = ct.id
+
+            JOIN loai_go lg
+                ON ct.loai_go_id = lg.id
+
+            WHERE hs.id=%s
+        """, (
+            ham_say_id,
+        ))
+
+        kieu_tinh = cur.fetchone()["kieu_tinh"]
+
+        if kieu_tinh == "TRONG_LUONG":
+
+            cur.execute("""
+                UPDATE ham_say
+                SET so_luong = so_luong-%s
+                WHERE id=%s
+            """, (
+                tong_kg,
+                ham_say_id
+            ))
+
+            cur.execute("""
+                SELECT so_luong
+                FROM ham_say
+                WHERE id=%s
+            """, (
+                ham_say_id,
+            ))
+
+            con_lai = cur.fetchone()["so_luong"]
+
+            if con_lai <= 0:
+
+                cur.execute("""
+                    DELETE FROM kho_kho
+                    WHERE id=%s
+                """, (
+                    kho_kho_id,
+                ))
+
+        else:
+
+            cur.execute("""
+                UPDATE ham_say
+
+                SET
+
+                    so_thanh = so_thanh-%s,
+                    so_luong = so_luong-%s
+
+                WHERE id=%s
+            """, (
+
+                tong_thanh,
+                tong_m3,
+                ham_say_id
+
+            ))
+
+            cur.execute("""
+                SELECT
+                    so_thanh
+                FROM ham_say
+                WHERE id=%s
+            """, (
+                ham_say_id,
+            ))
+
+            con_lai = cur.fetchone()["so_thanh"]
+
+            if con_lai <= 0:
+
+                cur.execute("""
+                    DELETE FROM kho_kho
+                    WHERE id=%s
+                """, (
+                    kho_kho_id,
+                ))
+
+        conn.commit()
+
+    except Exception:
+
+        conn.rollback()
+        raise
+
+    finally:
+
+        close_connection(conn)
+
+def lay_kho_da_phan_loai(
+    khach_hang_id=None,
+    loai_go_id=None,
+    phan_loai_go_id=None
+):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    sql = """
+        SELECT
+
+            kp.id,
+
+            pn.ngay,
+            pn.so_phieu,
+
+            kh.ten AS khach_hang,
+
+            lg.ten_go,
+            lg.ma_go,
+
+            lg.day,
+            lg.rong,
+            lg.dai,
+
+            pl.id AS phan_loai_go_id,
+            pl.ten AS phan_loai,
+
+            kp.kg,
+            kp.thanh,
+            kp.m3
+
+        FROM kho_phan_loai kp
+
+        JOIN kho_kho kk
+            ON kp.kho_kho_id = kk.id
+
+        JOIN ham_say hs
+            ON kk.ham_say_id = hs.id
+
+        JOIN chi_tiet_phieu_nhap ct
+            ON hs.chi_tiet_phieu_nhap_id = ct.id
+
+        JOIN phieu_nhap pn
+            ON ct.phieu_nhap_id = pn.id
+
+        JOIN khach_hang kh
+            ON pn.khach_hang_id = kh.id
+
+        JOIN loai_go lg
+            ON ct.loai_go_id = lg.id
+
+        JOIN phan_loai_go pl
+            ON kp.phan_loai_go_id = pl.id
+
+        WHERE 1=1
+    """
+
+    params = []
+
+    if khach_hang_id:
+
+        sql += " AND kh.id=%s"
+
+        params.append(khach_hang_id)
+
+    if loai_go_id:
+
+        sql += " AND lg.id=%s"
+
+        params.append(loai_go_id)
+
+    if phan_loai_go_id:
+
+        sql += " AND pl.id=%s"
+
+        params.append(phan_loai_go_id)
+
+    sql += """
+        ORDER BY
+
+            pl.ten,
+
+            kh.ten,
+
+            lg.ten_go,
+
+            pn.so_phieu
+    """
+
+    cur.execute(sql, params)
+
+    data = cur.fetchall()
+
+    close_connection(conn)
+
+    return data
