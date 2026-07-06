@@ -106,20 +106,25 @@ def nhap_phan_loai(lo):
 
     if lo_kg_float is not None:
         so_luong = st.number_input("Kg phân loại", min_value=0.0, step=1.0, key=input_key)
-        da_phan = sum(float(x.get("kg", 0)) for x in st.session_state.ds_phan_loai)
-
-        if round(so_luong + da_phan, 2) > round(lo_kg_float, 2):
-            st.error("❌ Vượt số kg còn lại.")
-            st.stop()
+        da_phan = sum(float(x.get("kg", 0)) for x in st.session_state.ds_phan_loai)      
     else:
         so_luong = st.number_input("Số thanh phân loại", min_value=1, step=1, key=input_key)
         da_thanh = sum(int(x.get("thanh", 0)) for x in st.session_state.ds_phan_loai)
 
-        if so_luong + da_thanh > int(lo["thanh"]):
-            st.error("❌ Vượt số thanh còn lại.")
-            st.stop()
-
     if st.button("➕ Thêm phân loại", use_container_width=True, type="primary"):
+
+        if lo_kg_float is not None:
+
+            if round(so_luong + da_phan, 2) > round(lo_kg_float, 2):
+                st.error("❌ Vượt số kg còn lại.")
+                st.stop()
+
+        else:
+
+            if so_luong + da_thanh > int(lo["thanh"]):
+                st.error("❌ Vượt số thanh còn lại.")
+                st.stop()
+
         da_co = False
         for item in st.session_state.ds_phan_loai:
             if item["loai"] == ten_phan_loai:
