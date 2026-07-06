@@ -1,7 +1,9 @@
 import streamlit as st
+import io
 import pandas as pd
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
+from utils.pdf_go_trong_ham import tao_pdf_go_trong_ham
 
 from database.db import (
     lay_ham_say,
@@ -45,6 +47,13 @@ def mau_thoi_gian(text):
     else:
         return "🔴 " + text
 
+@st.dialog("↩️ Thu hồi khỏi hầm", width="large")
+def dialog_thu_hoi_ham():
+
+    st.write("Chức năng đang phát triển...")
+
+    if st.button("Đóng"):
+        st.rerun()
 
 def show():
 
@@ -597,9 +606,7 @@ def show():
             )(*tinh_thoi_gian_say(x))
         )
 
-        df["Đã sấy"] = df["Đã sấy"].apply(
-            mau_thoi_gian
-        )
+        df["Đã sấy"] = df["Đã sấy"].apply(mau_thoi_gian)
 
         df["Ngày vào hầm"] = ngay_vao_vn.dt.strftime(
             "%d/%m/%Y %H:%M"
@@ -622,8 +629,66 @@ def show():
             lambda x: "" if pd.isna(x) else f"{x:.3f}"
         )
 
+        tong = {
+            "STT": "TỔNG CỘNG",
+            "Ngày nhập": "",
+            "Số phiếu": "",
+            "Khách hàng": "",
+            "Tên gỗ": "",
+            "Ký hiệu": "",
+            "Dày": "",
+            "Rộng": "",
+            "Dài": "",
+            "Kg": df["Kg"].replace("", "0").sum(),
+            "Thanh": df["Thanh"].replace("", "0").sum(),
+            "M³": df["M³"].replace("", "0").sum(),
+            "Ngày vào hầm": "",
+            "Đã sấy": ""
+        }
+
+        df = pd.concat([df, pd.DataFrame([tong])], ignore_index=True)
+
+        pdf = tao_pdf_go_trong_ham(df, so_ham)
+
+        buffer = io.BytesIO()
+
+        with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+            df.to_excel(writer, index=False, sheet_name="Gỗ trong hầm")
+
+        buffer.seek(0)
+
+        c1, c2 = st.columns(2)
+
+        with c1:
+            st.download_button(
+                "📄 Xuất PDF",
+                data=pdf,
+                file_name="Go_trong_ham.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+                type="primary"
+            )
+
+        with c2:
+            st.download_button(
+                "📊 Xuất Excel",
+                data=buffer,
+                file_name="Go_trong_ham.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+                type="primary"
+            )
+
         st.dataframe(
             df,
             use_container_width=True,
             hide_index=True
         )
+
+        st.divider()
+
+        if st.button(
+            "↩️ Thu hồi khỏi hầm",
+            use_container_width=True
+        ):
+            dialog_thu_hoi_ham()
