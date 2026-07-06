@@ -1536,18 +1536,27 @@ def luu_phan_loai(
 
                     kho_kho_id,
                     phan_loai_go_id,
+
+                    day,
+                    rong,
+                    dai,
+
                     kg,
                     thanh,
                     m3
 
                 )
                 VALUES(
-                    %s,%s,%s,%s,%s
+                    %s,%s,%s,%s,%s,%s,%s,%s
                 )
             """, (
 
                 kho_kho_id,
                 phan_loai_go_id,
+
+                item["day"],
+                item["rong"],
+                item["dai"],
 
                 item.get("kg"),
                 item.get("thanh"),
@@ -1682,9 +1691,9 @@ def lay_kho_da_phan_loai(
             lg.ten_go,
             lg.ma_go,
 
-            lg.day,
-            lg.rong,
-            lg.dai,
+            kp.day,
+            kp.rong,
+            kp.dai,
 
             pl.id AS phan_loai_go_id,
             pl.ten AS phan_loai,

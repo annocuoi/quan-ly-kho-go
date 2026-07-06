@@ -54,6 +54,7 @@ def hien_thi_thong_tin_lo(lo):
     st.write(f"**Loại gỗ:** {lo['ten_go']}")
     st.write(f"**Ký hiệu:** {lo['ma_go']}")
 
+
     if lo["kg"] is not None:
         st.info(f"Còn {float(lo['kg']):,.0f} kg")
     else:
@@ -63,12 +64,43 @@ def hien_thi_thong_tin_lo(lo):
 # Bọc fragment chuẩn để cô lập toàn bộ logic nhập liệu, thêm và xóa
 @st.fragment()
 def nhap_phan_loai(lo):
+    
     ds = lay_ds_phan_loai()
     lua_chon = {x["ten"]: x["id"] for x in ds}
 
     ten_phan_loai = st.selectbox("Loại phân loại", list(lua_chon.keys()))
 
+
     lo_kg_float = float(lo["kg"]) if lo["kg"] is not None else None
+
+    if lo_kg_float is None:
+
+        day = st.number_input(
+            "Dày",
+            value=float(lo["day"]),
+            min_value=0.0,
+            step=0.1
+        )
+
+        rong = st.number_input(
+            "Rộng",
+            value=float(lo["rong"]),
+            min_value=0.0,
+            step=0.1
+        )
+
+        dai = st.number_input(
+            "Dài",
+            value=float(lo["dai"]),
+            min_value=0.0,
+            step=1.0
+        )
+
+    else:
+
+        day = None
+        rong = None
+        dai = None
 
     # Tạo key động cho ô nhập liệu dựa trên số lần làm mới để reset giá trị cũ khi bấm Xóa
     input_key = f"input_{st.session_state.dialog_refresh_trigger}"
@@ -92,25 +124,69 @@ def nhap_phan_loai(lo):
         da_co = False
         for item in st.session_state.ds_phan_loai:
             if item["loai"] == ten_phan_loai:
+
+                item["day"] = day
+                item["rong"] = rong
+                item["dai"] = dai
+
                 if lo_kg_float is not None:
-                    item["kg"] = float(item["kg"]) + so_luong
+
+                    item["kg"] += so_luong
+
                 else:
-                    item["thanh"] = int(item["thanh"]) + so_luong
-                    item["m3"] = float(item["m3"]) + (float(lo["m3"]) * so_luong / int(lo["thanh"]))
+
+                    item["thanh"] += so_luong
+
+                    item["m3"] = round(
+                        item["day"] *
+                        item["rong"] *
+                        item["dai"] *
+                        item["thanh"] /
+                        1000000000,
+                        6
+                    )
                 da_co = True
                 break
 
         if not da_co:
+
             if lo_kg_float is not None:
+
                 st.session_state.ds_phan_loai.append({
+
                     "loai": ten_phan_loai,
+
+                    "day": day,
+                    "rong": rong,
+                    "dai": dai,
+
                     "kg": so_luong
+
                 })
+
             else:
+
+                m3 = round(
+                    day *
+                    rong *
+                    dai *
+                    so_luong /
+                    1000000000,
+                    6
+                )
+
                 st.session_state.ds_phan_loai.append({
+
                     "loai": ten_phan_loai,
+
+                    "day": day,
+                    "rong": rong,
+                    "dai": dai,
+
                     "thanh": so_luong,
-                    "m3": float(lo["m3"]) * so_luong / int(lo["thanh"])
+
+                    "m3": m3
+
                 })
         
         # Tăng trigger và ra lệnh làm mới scope cục bộ để đồng bộ ngay lập tức
