@@ -70,7 +70,6 @@ def nhap_phan_loai(lo):
 
     ten_phan_loai = st.selectbox("Loại phân loại", list(lua_chon.keys()))
 
-
     lo_kg_float = float(lo["kg"]) if lo["kg"] is not None else None
 
     if lo_kg_float is None:
