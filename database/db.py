@@ -1140,6 +1140,12 @@ def ra_ham(
     """, (ham_say_id,))
 
     row = cur.fetchone()
+    # Đánh dấu lô này đã từng ra hầm
+    cur.execute("""
+        UPDATE ham_say
+        SET da_ra_ham = TRUE
+        WHERE id=%s
+    """, (ham_say_id,))
 
     # ==========================
     # GỖ KG
@@ -1767,3 +1773,150 @@ def lay_kho_da_phan_loai(
     close_connection(conn)
 
     return data
+
+def lay_ds_thu_hoi_ham():
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT
+
+            hs.id,
+
+            hs.so_ham,
+
+            pn.so_phieu,
+
+            kh.ten AS khach_hang,
+
+            lg.ten_go,
+            lg.ma_go,
+
+            CASE
+                WHEN lg.kieu_tinh='TRONG_LUONG'
+                THEN hs.so_luong
+                ELSE NULL
+            END AS kg,
+
+            CASE
+                WHEN lg.kieu_tinh='M3'
+                THEN hs.so_thanh
+                ELSE NULL
+            END AS thanh,
+
+            CASE
+                WHEN lg.kieu_tinh='M3'
+                THEN hs.so_luong
+                ELSE NULL
+            END AS m3,
+
+            hs.ngay_vao
+
+        FROM ham_say hs
+
+        JOIN chi_tiet_phieu_nhap ct
+            ON hs.chi_tiet_phieu_nhap_id = ct.id
+
+        JOIN phieu_nhap pn
+            ON ct.phieu_nhap_id = pn.id
+
+        JOIN khach_hang kh
+            ON pn.khach_hang_id = kh.id
+
+        JOIN loai_go lg
+            ON ct.loai_go_id = lg.id
+
+        WHERE
+            hs.trang_thai = 'DANG_SAY'
+            AND hs.da_ra_ham = FALSE
+
+        ORDER BY
+            hs.so_ham,
+            hs.ngay_vao
+
+    """)
+
+    data = cur.fetchall()
+
+    close_connection(conn)
+
+    return data
+
+def thu_hoi_ham(ham_say_id):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    try:
+
+        # Lấy thông tin lô trong hầm
+        cur.execute("""
+            SELECT
+                chi_tiet_phieu_nhap_id,
+                so_luong,
+                so_thanh,
+                da_ra_ham
+            FROM ham_say
+            WHERE id=%s
+        """, (ham_say_id,))
+
+        hs = cur.fetchone()
+
+        if hs is None:
+            raise Exception("Không tìm thấy lô trong hầm.")
+
+        # Không cho thu hồi nếu đã từng ra hầm
+        if hs["da_ra_ham"]:
+            raise Exception("Lô này đã phát sinh ra hầm, không thể thu hồi.")
+
+        # ==========================
+        # Gỗ KG
+        # ==========================
+        if hs["so_thanh"] is None:
+
+            cur.execute("""
+                UPDATE chi_tiet_phieu_nhap
+                SET
+                    so_luong_con_lai = so_luong_con_lai + %s,
+                    trang_thai = 'TUOI'
+                WHERE id=%s
+            """, (
+                hs["so_luong"],
+                hs["chi_tiet_phieu_nhap_id"]
+            ))
+
+        # ==========================
+        # Gỗ M3
+        # ==========================
+        else:
+
+            cur.execute("""
+                UPDATE chi_tiet_phieu_nhap
+                SET
+                    so_thanh_con_lai = so_thanh_con_lai + %s,
+                    so_luong_con_lai = so_luong_con_lai + %s,
+                    trang_thai = 'TUOI'
+                WHERE id=%s
+            """, (
+                hs["so_thanh"],
+                hs["so_luong"],
+                hs["chi_tiet_phieu_nhap_id"]
+            ))
+
+        # Xóa khỏi hầm
+        cur.execute("""
+            DELETE FROM ham_say
+            WHERE id=%s
+        """, (ham_say_id,))
+
+        conn.commit()
+
+    except Exception:
+
+        conn.rollback()
+        raise
+
+    finally:
+
+        close_connection(conn)

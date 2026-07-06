@@ -12,7 +12,9 @@ from database.db import (
     lay_kho_tuoi_m3,  
     dua_kg_vao_ham,
     dua_m3_vao_ham,
-    ra_ham
+    ra_ham,
+    thu_hoi_ham,
+    lay_ds_thu_hoi_ham
 )
 
 
@@ -50,12 +52,160 @@ def mau_thoi_gian(text):
 @st.dialog("↩️ Thu hồi khỏi hầm", width="large")
 def dialog_thu_hoi_ham():
 
-    st.write("Chức năng đang phát triển...")
+    if st.session_state.xac_nhan_thu_hoi:
 
-    if st.button("Đóng"):
+        lo = st.session_state.lo_thu_hoi
+
+        st.error("⚠ XÁC NHẬN THU HỒI")
+
+        st.write(f"**Hầm:** {lo['so_ham']}")
+        st.write(f"**Phiếu:** {lo['so_phieu']}")
+        st.write(f"**Khách hàng:** {lo['khach_hang']}")
+        st.write(f"**Loại gỗ:** {lo['ten_go']}")
+
+        if lo["kg"] is not None:
+
+            st.info(f"{float(lo['kg']):,.0f} kg")
+
+        else:
+
+            st.info(
+                f"{int(lo['thanh']):,} thanh\n\n"
+                f"{float(lo['m3']):.3f} m³"
+            )
+
+        st.warning("""
+    Sau khi thu hồi:
+
+    • Lô này sẽ bị xóa khỏi hầm.
+
+    • Gỗ sẽ trở lại Kho tươi.
+
+    Không thể hoàn tác.
+    """)
+
+        c1, c2 = st.columns(2)
+
+        with c1:
+
+            if st.button(
+                "❌ Hủy",
+                use_container_width=True
+            ):
+                st.session_state.xac_nhan_thu_hoi = False
+                st.session_state.lo_thu_hoi = None
+                st.session_state.mo_dialog_thu_hoi = False
+                st.rerun()
+
+        with c2:
+
+            if st.button(
+                "✅ Đồng ý",
+                use_container_width=True,
+                type="primary"
+            ):
+
+                thu_hoi_ham(lo["id"])
+
+                st.session_state.xac_nhan_thu_hoi = False
+                st.session_state.lo_thu_hoi = None
+                st.session_state.mo_dialog_thu_hoi = False
+
+                st.success("Đã thu hồi thành công.")
+
+                st.rerun()
+
+        return
+
+    ds = lay_ds_thu_hoi_ham()
+
+    if len(ds) == 0:
+        st.info("Không có lô nào đang trong hầm.")
+        return
+
+    lua_chon = {}
+
+    for row in ds:
+
+        if row["kg"] is not None:
+
+            text = (
+                f"Hầm {row['so_ham']} | "
+                f"Phiếu {row['so_phieu']} | "
+                f"{row['khach_hang']} | "
+                f"{row['ten_go']} | "
+                f"{float(row['kg']):,.0f} kg"
+            )
+
+        else:
+
+            text = (
+                f"Hầm {row['so_ham']} | "
+                f"Phiếu {row['so_phieu']} | "
+                f"{row['khach_hang']} | "
+                f"{row['ten_go']} | "
+                f"{int(row['thanh']):,} thanh | "
+                f"{float(row['m3']):.3f} m³"
+            )
+        lua_chon[text] = row
+
+    chon = st.selectbox(
+        "Chọn lô cần thu hồi",
+        list(lua_chon.keys())
+    )
+
+    lo = lua_chon[chon]
+
+    st.divider()
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+        st.write(f"**Hầm:** {lo['so_ham']}")
+        st.write(f"**Phiếu:** {lo['so_phieu']}")
+        st.write(f"**Khách hàng:** {lo['khach_hang']}")
+
+    with c2:
+        st.write(f"**Loại gỗ:** {lo['ten_go']}")
+
+        if lo["kg"] is not None:
+
+            st.write(f"**Khối lượng:** {float(lo['kg']):,.0f} kg")
+
+        else:
+
+            st.write(f"**Số lượng:** {int(lo['thanh']):,} thanh")
+            st.write(f"**Thể tích:** {float(lo['m3']):.3f} m³")
+
+    st.warning(
+        "⚠ Thu hồi sẽ bị mất thời gian sấy và trở về kho tươi lại."
+    )
+
+    if st.button(
+        "↩️ Thu hồi",
+        use_container_width=True,
+        type="primary"
+    ):
+        st.session_state.lo_thu_hoi = lo
+        st.session_state.xac_nhan_thu_hoi = True
         st.rerun()
 
 def show():
+
+    if "mo_dialog_thu_hoi" not in st.session_state:
+        st.session_state.mo_dialog_thu_hoi = False
+
+    if "xac_nhan_thu_hoi" not in st.session_state:
+        st.session_state.xac_nhan_thu_hoi = False
+
+    if "lo_thu_hoi" not in st.session_state:
+        st.session_state.lo_thu_hoi = None
+
+    if "xac_nhan_thu_hoi" not in st.session_state:
+        st.session_state.xac_nhan_thu_hoi = False
+
+    if "ham_say_thu_hoi" not in st.session_state:
+        st.session_state.ham_say_thu_hoi = None
 
     if "ra_ham" not in st.session_state:
         st.session_state.ra_ham = False
@@ -691,4 +841,9 @@ def show():
             "↩️ Thu hồi khỏi hầm",
             use_container_width=True
         ):
+            st.session_state.mo_dialog_thu_hoi = True
+            st.rerun()
+
+        # Đặt ngoài if button
+        if st.session_state.mo_dialog_thu_hoi:
             dialog_thu_hoi_ham()
