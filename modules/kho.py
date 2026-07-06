@@ -4,6 +4,7 @@ import io
 from zoneinfo import ZoneInfo
 from utils.pdf_kho_kho import tao_pdf_kho_kho
 from utils.pdf_kho_tuoi import tao_pdf_kho_tuoi
+from utils.pdf_kho_da_phan_loai import tao_pdf_kho_da_phan_loai
 from database.db import (
     lay_ds_khach_hang,
     lay_ds_loai_go,
@@ -59,7 +60,7 @@ def hien_thi_thong_tin_lo(lo):
         st.info(f"Còn {int(lo['thanh']):,} thanh | {lo['m3']:.3f} m³")
     st.divider()
 
-# Thêm fragment cô lập cập nhật UI, F5 cục bộ
+# Bọc fragment chuẩn để cô lập toàn bộ logic nhập liệu, thêm và xóa
 @st.fragment()
 def nhap_phan_loai(lo):
     ds = lay_ds_phan_loai()
@@ -67,21 +68,23 @@ def nhap_phan_loai(lo):
 
     ten_phan_loai = st.selectbox("Loại phân loại", list(lua_chon.keys()))
 
-    # Ép kiểu lo["kg"] về float phòng trường hợp database trả về kiểu Decimal gây crash phép trừ
     lo_kg_float = float(lo["kg"]) if lo["kg"] is not None else None
 
+    # Tạo key động cho ô nhập liệu dựa trên số lần làm mới để reset giá trị cũ khi bấm Xóa
+    input_key = f"input_{st.session_state.dialog_refresh_trigger}"
+
     if lo_kg_float is not None:
-        so_luong = st.number_input("Kg phân loại", min_value=0.0, step=1.0)
+        so_luong = st.number_input("Kg phân loại", min_value=0.0, step=1.0, key=input_key)
         da_phan = sum(float(x.get("kg", 0)) for x in st.session_state.ds_phan_loai)
 
-        if so_luong + da_phan > lo_kg_float:
+        if round(so_luong + da_phan, 2) > round(lo_kg_float, 2):
             st.error("❌ Vượt số kg còn lại.")
             st.stop()
     else:
-        so_luong = st.number_input("Số thanh phân loại", min_value=1, step=1)
+        so_luong = st.number_input("Số thanh phân loại", min_value=1, step=1, key=input_key)
         da_thanh = sum(int(x.get("thanh", 0)) for x in st.session_state.ds_phan_loai)
 
-        if so_luong + da_thanh > lo["thanh"]:
+        if so_luong + da_thanh > int(lo["thanh"]):
             st.error("❌ Vượt số thanh còn lại.")
             st.stop()
 
@@ -110,7 +113,8 @@ def nhap_phan_loai(lo):
                     "m3": float(lo["m3"]) * so_luong / int(lo["thanh"])
                 })
         
-        # Chỉ làm mới (rerun) riêng vùng fragment này để thêm item vào danh sách mà không mất Dialog
+        # Tăng trigger và ra lệnh làm mới scope cục bộ để đồng bộ ngay lập tức
+        st.session_state.dialog_refresh_trigger += 1
         st.rerun(scope="fragment")
 
     if len(st.session_state.ds_phan_loai):
@@ -119,8 +123,7 @@ def nhap_phan_loai(lo):
 
         xoa_index = None
 
-        # Bọc danh sách bằng container có key động dựa trên số phần tử để xóa cache UI nút bấm của Streamlit
-        with st.container(key=f"container_bangg_{len(st.session_state.ds_phan_loai)}"):
+        with st.container(key=f"container_bangg_{st.session_state.dialog_refresh_trigger}"):
             for i, item in enumerate(st.session_state.ds_phan_loai):
                 c1, c2, c3, c4 = st.columns([4, 2, 2, 1])
                 c1.write(item["loai"])
@@ -131,12 +134,13 @@ def nhap_phan_loai(lo):
                     c2.write(f"{int(item.get('thanh', 0)):,} thanh")
                     c3.write(f"{float(item.get('m3', 0)):.3f} m³")
 
-                if c4.button("🗑️", key=f"xoa_{i}_{len(st.session_state.ds_phan_loai)}"):
+                if c4.button("🗑️", key=f"xoa_{i}_{st.session_state.dialog_refresh_trigger}"):
                     xoa_index = i
 
         if xoa_index is not None:
-            del st.session_state.ds_phan_loai[xoa_index]
-            # QUAN TRỌNG: Chỉ F5 riêng vùng fragment này, hàng sẽ biến mất ngay và giữ nguyên Dialog ngoài
+            st.session_state.ds_phan_loai.pop(xoa_index)
+            # Tăng trigger để reset giá trị trong ô input và F5 fragment lập tức xóa hàng
+            st.session_state.dialog_refresh_trigger += 1
             st.rerun(scope="fragment")
 
     if lo_kg_float is not None:
@@ -156,13 +160,15 @@ def nhap_phan_loai(lo):
         luu_phan_loai(lo["id"], st.session_state.ds_phan_loai)
         st.session_state.ds_phan_loai = []
         st.success("Đã phân loại thành công.")
-        # Hoàn thành lưu trữ thì cần F5 app ngoài để đóng dialog và cập nhật lại lưới dữ liệu bên ngoài
         st.rerun(scope="app")
 
 @st.dialog("📦 Phân loại kho khô", width="large")
 def dialog_phan_loai():
     if "ds_phan_loai" not in st.session_state:
         st.session_state.ds_phan_loai = []
+        
+    if "dialog_refresh_trigger" not in st.session_state:
+        st.session_state.dialog_refresh_trigger = 0
 
     lo = chon_lo()
     if lo is None:
@@ -350,207 +356,85 @@ def show():
             dialog_phan_loai() 
 
     elif st.session_state.tab_kho == "da_phan_loai":
-
         st.subheader("🟤 Kho khô đã phân loại")
-
         c1, c2, c3 = st.columns(3)
 
         with c1:
-
             ds_kh = lay_ds_khach_hang()
-
             options = [{"id": None, "ten": "Tất cả"}]
             options.extend(ds_kh)
-
-            ten_kh = st.selectbox(
-                "Khách hàng",
-                [x["ten"] for x in options],
-                key="kh_da_phan_loai"
-            )
-
-            khach_hang_id = next(
-                x["id"]
-                for x in options
-                if x["ten"] == ten_kh
-            )
+            ten_kh = st.selectbox("Khách hàng", [x["ten"] for x in options], key="kh_da_phan_loai")
+            khach_hang_id = next(x["id"] for x in options if x["ten"] == ten_kh)
 
         with c2:
-
             ds_go = lay_ds_loai_go()
-
             options_go = [{"id": None, "ten_go": "Tất cả"}]
             options_go.extend(ds_go)
-
-            ten_go = st.selectbox(
-                "Loại gỗ",
-                [x["ten_go"] for x in options_go],
-                key="go_da_phan_loai"
-            )
-
-            loai_go_id = next(
-                x["id"]
-                for x in options_go
-                if x["ten_go"] == ten_go
-            )
+            ten_go = st.selectbox("Loại gỗ", [x["ten_go"] for x in options_go], key="go_da_phan_loai")
+            loai_go_id = next(x["id"] for x in options_go if x["ten_go"] == ten_go)
 
         with c3:
-
             ds_pl = lay_ds_phan_loai()
-
             options_pl = [{"id": None, "ten": "Tất cả"}]
             options_pl.extend(ds_pl)
+            ten_pl = st.selectbox("Phân loại", [x["ten"] for x in options_pl], key="phan_loai_da_phan_loai")
+            phan_loai_go_id = next(x["id"] for x in options_pl if x["ten"] == ten_pl)
 
-            ten_pl = st.selectbox(
-                "Phân loại",
-                [x["ten"] for x in options_pl],
-                key="phan_loai_da_phan_loai"
-            )
-
-            phan_loai_go_id = next(
-                x["id"]
-                for x in options_pl
-                if x["ten"] == ten_pl
-            )
-
-        ds = lay_kho_da_phan_loai(
-            khach_hang_id,
-            loai_go_id,
-            phan_loai_go_id
-        )
-
+        ds = lay_kho_da_phan_loai(khach_hang_id, loai_go_id, phan_loai_go_id)
         if len(ds) == 0:
             st.info("Chưa có dữ liệu.")
             return
 
         df = pd.DataFrame(ds)
-
         if phan_loai_go_id is None:
-
             df = df.rename(columns={
-                "ngay": "Ngày",
-                "so_phieu": "Phiếu",
-                "khach_hang": "Khách",
-                "ten_go": "Loại gỗ",
-                "ma_go": "Ký hiệu",
-                "day": "Dày",
-                "rong": "Rộng",
-                "dai": "Dài",
-                "phan_loai": "Phân loại",
-                "kg": "Kg",
-                "thanh": "Thanh",
-                "m3": "M³"
+                "ngay": "Ngày", "so_phieu": "Phiếu", "khach_hang": "Khách", "ten_go": "Loại gỗ",
+                "ma_go": "Ký hiệu", "day": "Dày", "rong": "Rộng", "dai": "Dài", "phan_loai": "Phân loại",
+                "kg": "Kg", "thanh": "Thanh", "m3": "M³"
             })
-
-            df = df[[
-                "Ngày",
-                "Phiếu",
-                "Khách",
-                "Loại gỗ",
-                "Ký hiệu",
-                "Phân loại",
-                "Dày",
-                "Rộng",
-                "Dài",
-                "Kg",
-                "Thanh",
-                "M³"
-            ]]
-
+            df = df[["Ngày", "Phiếu", "Khách", "Loại gỗ", "Ký hiệu", "Phân loại", "Dày", "Rộng", "Dài", "Kg", "Thanh", "M³"]]
         else:
-
             df = df.rename(columns={
-                "ngay": "Ngày",
-                "so_phieu": "Phiếu",
-                "khach_hang": "Khách",
-                "ten_go": "Loại gỗ",
-                "ma_go": "Ký hiệu",
-                "day": "Dày",
-                "rong": "Rộng",
-                "dai": "Dài",
-                "kg": "Kg",
-                "thanh": "Thanh",
-                "m3": "M³"
+                "ngay": "Ngày", "so_phieu": "Phiếu", "khach_hang": "Khách", "ten_go": "Loại gỗ",
+                "ma_go": "Ký hiệu", "day": "Dày", "rong": "Rộng", "dai": "Dài", "kg": "Kg", "thanh": "Thanh", "m3": "M³"
             })
+            df = df[["Ngày", "Phiếu", "Khách", "Loại gỗ", "Ký hiệu", "Dày", "Rộng", "Dài", "Kg", "Thanh", "M³"]]
 
-            df = df[[
-                "Ngày",
-                "Phiếu",
-                "Khách",
-                "Loại gỗ",
-                "Ký hiệu",
-                "Dày",
-                "Rộng",
-                "Dài",
-                "Kg",
-                "Thanh",
-                "M³"
-            ]]
-
-        # STT
         df.insert(0, "STT", range(1, len(df) + 1))
-
-        # Định dạng ngày
         df["Ngày"] = pd.to_datetime(df["Ngày"]).dt.strftime("%d/%m/%Y")
 
-        # Định dạng kích thước
         for cot in ["Dày", "Rộng", "Dài"]:
             if cot in df.columns:
-                df[cot] = df[cot].apply(
-                    lambda x: "" if pd.isna(x) else int(x)
-                )
+                df[cot] = df[cot].apply(lambda x: "" if pd.isna(x) else int(x))
 
-        # Tính tổng
-        tong_kg = pd.to_numeric(
-            df["Kg"],
-            errors="coerce"
-        ).fillna(0).sum()
+        tong_kg = pd.to_numeric(df["Kg"], errors="coerce").fillna(0).sum()
+        tong_thanh = pd.to_numeric(df["Thanh"], errors="coerce").fillna(0).sum()
+        tong_m3 = pd.to_numeric(df["M³"], errors="coerce").fillna(0).sum()
 
-        tong_thanh = pd.to_numeric(
-            df["Thanh"],
-            errors="coerce"
-        ).fillna(0).sum()
+        df["Kg"] = df["Kg"].apply(lambda x: "" if pd.isna(x) else f"{float(x):,.0f}")
+        df["Thanh"] = df["Thanh"].apply(lambda x: "" if pd.isna(x) else f"{int(x):,}")
+        df["M³"] = df["M³"].apply(lambda x: "" if pd.isna(x) else f"{float(x):.3f}")
 
-        tong_m3 = pd.to_numeric(
-            df["M³"],
-            errors="coerce"
-        ).fillna(0).sum()
-
-        # Format hiển thị
-        df["Kg"] = df["Kg"].apply(
-            lambda x: "" if pd.isna(x) else f"{float(x):,.0f}"
-        )
-
-        df["Thanh"] = df["Thanh"].apply(
-            lambda x: "" if pd.isna(x) else f"{int(x):,}"
-        )
-
-        df["M³"] = df["M³"].apply(
-            lambda x: "" if pd.isna(x) else f"{float(x):.3f}"
-        )
-
-        # Dòng tổng
         tong = {
-            "STT": "",
-            "Ngày": "",
-            "Phiếu": "",
-            "Khách": "",
-            "Loại gỗ": "TỔNG CỘNG",
-            "Ký hiệu": "",
-            "Dày": "",
-            "Rộng": "",
-            "Dài": "",
-            "Kg": f"{tong_kg:,.0f}" if tong_kg else "",
-            "Thanh": f"{tong_thanh:,.0f}" if tong_thanh else "",
-            "M³": f"{tong_m3:.3f}" if tong_m3 else ""
+            "STT": "", "Ngày": "", "Phiếu": "", "Khách": "", "Loại gỗ": "TỔNG CỘNG", "Ký hiệu": "",
+            "Dày": "", "Rộng": "", "Dài": "", "Kg": f"{tong_kg:,.0f}" if tong_kg else "",
+            "Thanh": f"{tong_thanh:,.0f}" if tong_thanh else "", "M³": f"{tong_m3:.3f}" if tong_m3 else ""
         }
-
         if phan_loai_go_id is None:
             tong["Phân loại"] = ""
 
         df.loc[len(df)] = tong
+        pdf = tao_pdf_kho_da_phan_loai(df, ten_kh, ten_go, ten_pl)
 
-        st.dataframe(
-            df,
-            use_container_width=True,
-            hide_index=True
-        )
+        buffer = io.BytesIO()
+        with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+            df.to_excel(writer, index=False, sheet_name="Kho đã phân loại")
+        buffer.seek(0)
+
+        c1, c2 = st.columns(2)
+        with c1:
+            st.download_button("📄 Xuất PDF", data=pdf, file_name="Kho_da_phan_loai.pdf", mime="application/pdf", use_container_width=True, type="primary")
+        with c2:
+            st.download_button("📊 Xuất Excel", data=buffer, file_name="Kho_da_phan_loai.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True, type="primary")
+
+        st.dataframe(df, use_container_width=True, hide_index=True)

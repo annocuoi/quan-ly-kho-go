@@ -1669,9 +1669,12 @@ def lay_kho_da_phan_loai(
     sql = """
         SELECT
 
-            kp.id,
+            kk.id AS kho_kho_id,
+
+            kp.id AS kho_phan_loai_id,
 
             pn.ngay,
+
             pn.so_phieu,
 
             kh.ten AS khach_hang,
