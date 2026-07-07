@@ -1598,6 +1598,7 @@ def luu_phan_loai(
             cur.execute("""
                 INSERT INTO kho_phan_loai(
 
+                    ham_say_id,
                     phan_loai_go_id,
 
                     day,
@@ -1609,9 +1610,11 @@ def luu_phan_loai(
                     m3
                 )
                 VALUES(
-                    %s,%s,%s,%s,%s,%s,%s
+                    %s,%s,%s,%s,%s,%s,%s,%s
                 )
             """, (
+
+                ham_say_id,
                 phan_loai_go_id,
 
                 item["day"],
@@ -1738,8 +1741,6 @@ def lay_kho_da_phan_loai(
     sql = """
         SELECT
 
-            kk.id AS kho_kho_id,
-
             kp.id AS kho_phan_loai_id,
 
             pn.ngay,
@@ -1764,11 +1765,8 @@ def lay_kho_da_phan_loai(
 
         FROM kho_phan_loai kp
 
-        JOIN kho_kho kk
-            ON kp.kho_kho_id = kk.id
-
         JOIN ham_say hs
-            ON kk.ham_say_id = hs.id
+            ON kp.ham_say_id = hs.id
 
         JOIN chi_tiet_phieu_nhap ct
             ON hs.chi_tiet_phieu_nhap_id = ct.id
