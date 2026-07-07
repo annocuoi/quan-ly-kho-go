@@ -1,11 +1,82 @@
 import streamlit as st
 from datetime import date
+import pandas as pd
 
 from database.db import (
     lay_cong_no,
     them_thanh_toan,
     lay_lich_su_cong_no
 )
+
+@st.dialog("📜 Lịch sử công nợ")
+def dialog_lich_su(khach):
+
+    st.subheader(f"👤 {khach['ten']}")
+
+    ds = lay_lich_su_cong_no(khach["id"])
+
+    if not ds:
+        st.info("Khách hàng chưa có công nợ.")
+        return
+
+    data = []
+
+    tong_no = 0
+    tong_tra = 0
+
+    for row in ds:
+
+        if row["loai"] == "NHAP_HANG":
+
+            no = row["so_tien"]
+            co = ""
+
+            tong_no += row["so_tien"]
+
+            noi_dung = f"Phiếu nhập {row['so_phieu']}"
+
+        else:
+
+            no = ""
+            co = row["so_tien"]
+
+            tong_tra += row["so_tien"]
+
+            noi_dung = row["ghi_chu"] or "Thanh toán"
+
+        data.append({
+            "Ngày": row["ngay"].strftime("%d/%m/%Y"),
+            "Nội dung": noi_dung,
+            "Nợ": f"{no:,.0f}" if no != "" else "",
+            "Có": f"{co:,.0f}" if co != "" else ""
+        })
+
+    df = pd.DataFrame(data)
+
+    st.dataframe(
+        df,
+        use_container_width=True,
+        hide_index=True
+    )
+
+    st.divider()
+
+    c1, c2, c3 = st.columns(3)
+
+    c1.metric(
+        "Phát sinh",
+        f"{tong_no:,.0f}"
+    )
+
+    c2.metric(
+        "Đã trả",
+        f"{tong_tra:,.0f}"
+    )
+
+    c3.metric(
+        "Còn nợ",
+        f"{tong_no - tong_tra:,.0f}"
+    )
 
 @st.dialog("💵 Thu tiền")
 def dialog_thu_tien(khach):
@@ -54,7 +125,7 @@ def dialog_thu_tien(khach):
 
     with col2:
         st.button("Đóng", use_container_width=True)
-        
+
 def show():
 
     st.header("💰 Công nợ khách hàng")
@@ -90,7 +161,7 @@ def show():
         c4.write(f'**{con_no:,.0f}**')
 
         if c5.button("👁", key=f"xem_{row['id']}"):
-            st.info(f"Xem lịch sử công nợ của {row['ten']} (đang làm)")
+            dialog_lich_su(row)
 
         if c6.button("💵", key=f"thu_{row['id']}"):
             dialog_thu_tien(row)

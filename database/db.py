@@ -1598,7 +1598,6 @@ def luu_phan_loai(
             cur.execute("""
                 INSERT INTO kho_phan_loai(
 
-                    kho_kho_id,
                     phan_loai_go_id,
 
                     day,
@@ -1608,14 +1607,11 @@ def luu_phan_loai(
                     kg,
                     thanh,
                     m3
-
                 )
                 VALUES(
-                    %s,%s,%s,%s,%s,%s,%s,%s
+                    %s,%s,%s,%s,%s,%s,%s
                 )
             """, (
-
-                kho_kho_id,
                 phan_loai_go_id,
 
                 item["day"],
@@ -2284,13 +2280,29 @@ def lay_lich_su_cong_no(khach_hang_id):
 
     cur.execute("""
         SELECT
-            ngay,
-            loai,
-            so_tien,
-            ghi_chu
-        FROM cong_no
-        WHERE khach_hang_id=%s
-        ORDER BY ngay,id
+
+            cn.id,
+
+            cn.ngay,
+
+            cn.loai,
+
+            cn.so_tien,
+
+            cn.ghi_chu,
+
+            pn.so_phieu
+
+        FROM cong_no cn
+
+        LEFT JOIN phieu_nhap pn
+            ON cn.phieu_nhap_id = pn.id
+
+        WHERE cn.khach_hang_id=%s
+
+        ORDER BY
+            cn.ngay,
+            cn.id
     """, (khach_hang_id,))
 
     data = cur.fetchall()
