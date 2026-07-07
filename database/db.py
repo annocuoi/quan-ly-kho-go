@@ -968,11 +968,24 @@ def dua_kg_vao_ham(
             so_luong
         )
         VALUES(%s,%s,%s)
+        RETURNING id
     """, (
         chi_tiet_id,
         so_ham,
         kg
     ))
+
+    ham_say_id = cur.fetchone()["id"]
+    ghi_lich_su_ham(
+        cur,
+        ham_say_id,
+        chi_tiet_id,
+        so_ham,
+        "VAO_HAM",
+        kg,
+        None,
+        "KG"
+    )
 
     cur.execute("""
         UPDATE chi_tiet_phieu_nhap
@@ -1078,12 +1091,24 @@ def dua_m3_vao_ham(
             so_luong
         )
         VALUES(%s,%s,%s,%s)
+        RETURNING id
     """, (
         chi_tiet_id,
         so_ham,
         so_thanh,
         m3
     ))
+    ham_say_id = cur.fetchone()["id"]
+    ghi_lich_su_ham(
+        cur,
+        ham_say_id,
+        chi_tiet_id,
+        so_ham,
+        "VAO_HAM",
+        m3,
+        so_thanh,
+        "M3"
+    )
 
     # Cập nhật số còn lại
     cur.execute("""
@@ -1296,6 +1321,39 @@ def ra_ham(
         )
         VALUES(%s)
     """, (ham_say_moi,))
+
+    # ==========================
+    # Ghi lịch sử
+    # ==========================
+
+    if row["so_thanh"] is None:
+
+        ghi_lich_su_ham(
+            cur,
+            ham_say_moi,
+            row["chi_tiet_phieu_nhap_id"],
+            row["so_ham"],
+            "RA_HAM",
+            kg_ra,
+            None,
+            "KG"
+        )
+
+    else:
+
+        if thanh_ra == tong_thanh:
+            m3_ra = tong_m3
+
+        ghi_lich_su_ham(
+            cur,
+            ham_say_moi,
+            row["chi_tiet_phieu_nhap_id"],
+            row["so_ham"],
+            "RA_HAM",
+            m3_ra,
+            thanh_ra,
+            "M3"
+        )
 
     conn.commit()
 
@@ -1854,6 +1912,7 @@ def thu_hoi_ham(ham_say_id):
         cur.execute("""
             SELECT
                 chi_tiet_phieu_nhap_id,
+                so_ham,
                 so_luong,
                 so_thanh,
                 da_ra_ham
@@ -1886,6 +1945,17 @@ def thu_hoi_ham(ham_say_id):
                 hs["chi_tiet_phieu_nhap_id"]
             ))
 
+            ghi_lich_su_ham(
+                cur,
+                ham_say_id,
+                hs["chi_tiet_phieu_nhap_id"],
+                hs["so_ham"],
+                "THU_HOI",
+                hs["so_luong"],
+                None,
+                "KG"
+            )
+
         # ==========================
         # Gỗ M3
         # ==========================
@@ -1904,6 +1974,17 @@ def thu_hoi_ham(ham_say_id):
                 hs["chi_tiet_phieu_nhap_id"]
             ))
 
+            ghi_lich_su_ham(
+                cur,
+                ham_say_id,
+                hs["chi_tiet_phieu_nhap_id"],
+                hs["so_ham"],
+                "THU_HOI",
+                hs["so_luong"],
+                hs["so_thanh"],
+                "M3"
+            )
+
         # Xóa khỏi hầm
         cur.execute("""
             DELETE FROM ham_say
@@ -1913,10 +1994,121 @@ def thu_hoi_ham(ham_say_id):
         conn.commit()
 
     except Exception:
-
         conn.rollback()
         raise
 
     finally:
-
         close_connection(conn)
+
+def ghi_lich_su_ham(
+    cur,
+    ham_say_id,
+    chi_tiet_id,
+    so_ham,
+    hanh_dong,
+    so_luong,
+    so_thanh,
+    loai_hang
+):
+
+    cur.execute("""
+        INSERT INTO lich_su_ham(
+
+            ham_say_id,
+            chi_tiet_phieu_nhap_id,
+            so_ham,
+            hanh_dong,
+            so_luong,
+            so_thanh,
+            loai_hang
+
+        )
+        VALUES(%s,%s,%s,%s,%s,%s,%s)
+    """, (
+        ham_say_id,
+        chi_tiet_id,
+        so_ham,
+        hanh_dong,
+        so_luong,
+        so_thanh,
+        loai_hang
+    ))
+
+def lay_lich_su_ham(
+    tu_ngay,
+    den_ngay,
+    khach_hang_id=None,
+    loai_go_id=None,
+    hanh_dong=None
+):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    sql = """
+        SELECT
+
+            ls.ngay,
+
+            ls.so_ham,
+
+            pn.so_phieu,
+
+            kh.ten,
+
+            lg.ten_go,
+
+            ls.hanh_dong,
+
+            ls.so_luong,
+
+            ls.so_thanh,
+
+            ls.loai_hang
+
+        FROM lich_su_ham ls
+
+        JOIN chi_tiet_phieu_nhap ct
+            ON ls.chi_tiet_phieu_nhap_id = ct.id
+
+        JOIN phieu_nhap pn
+            ON ct.phieu_nhap_id = pn.id
+
+        JOIN khach_hang kh
+            ON pn.khach_hang_id = kh.id
+
+        JOIN loai_go lg
+            ON ct.loai_go_id = lg.id
+
+        WHERE
+            DATE(ls.ngay AT TIME ZONE 'Asia/Ho_Chi_Minh')
+            BETWEEN %s AND %s
+    """
+
+    params = [tu_ngay, den_ngay]
+
+    if khach_hang_id is not None:
+        sql += " AND kh.id=%s"
+        params.append(khach_hang_id)
+
+    if loai_go_id is not None:
+        sql += " AND lg.id=%s"
+        params.append(loai_go_id)
+
+    if hanh_dong not in (None, "", "Tất cả"):
+        sql += " AND ls.hanh_dong=%s"
+        params.append(hanh_dong)
+
+    sql += """
+        ORDER BY
+            ls.ngay DESC,
+            ls.id DESC
+    """
+
+    cur.execute(sql, params)
+
+    data = cur.fetchall()
+
+    close_connection(conn)
+
+    return data
