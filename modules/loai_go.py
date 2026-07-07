@@ -2,6 +2,8 @@ import streamlit as st
 
 from database.db import (
     lay_ds_loai_go,
+    lay_ds_ten_go,
+    lay_ds_quy_cach,
     them_loai_go,
     sua_loai_go,
     xoa_loai_go
@@ -151,11 +153,70 @@ def show():
 
     st.divider()
 
-    tu_khoa = st.text_input(
-        "🔍 Tìm kiếm theo tên"
-    )
+    c1, c2 = st.columns(2)
 
-    ds = lay_ds_loai_go(tu_khoa)
+    with c1:
+
+        ds_ten = lay_ds_ten_go()
+
+        options = [{"ten": "Tất cả"}]
+        options.extend(ds_ten)
+
+        ten_go = st.selectbox(
+            "Tên gỗ",
+            [x["ten"] for x in options]
+        )
+
+    with c2:
+
+        loai_go_id = None
+
+        if ten_go == "Tất cả":
+
+            st.selectbox(
+                "Quy cách",
+                ["Tất cả"],
+                disabled=True
+            )
+
+        else:
+
+            ds_qc = lay_ds_quy_cach(ten_go)
+
+            if len(ds_qc) == 0:
+
+                st.selectbox(
+                    "Quy cách",
+                    ["Không có"],
+                    disabled=True
+                )
+
+            else:
+
+                options_qc = [{"id": None, "ten": "Tất cả"}]
+
+                for x in ds_qc:
+
+                    options_qc.append({
+                        "id": x["id"],
+                        "ten": f"{int(x['day'])} × {int(x['rong'])} × {int(x['dai'])}"
+                    })
+
+                ten_qc = st.selectbox(
+                    "Quy cách",
+                    [x["ten"] for x in options_qc]
+                )
+
+                loai_go_id = next(
+                    x["id"]
+                    for x in options_qc
+                    if x["ten"] == ten_qc
+                )
+
+    ds = lay_ds_loai_go(
+        None if ten_go == "Tất cả" else ten_go,
+        loai_go_id
+    )
 
     st.subheader("Danh sách")
 

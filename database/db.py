@@ -266,12 +266,15 @@ def tao_database():
     close_connection(conn)
 
 
-def lay_ds_loai_go(tu_khoa=""):
+def lay_ds_loai_go(
+    ten_go=None,
+    loai_go_id=None
+):
 
     conn = get_connection()
     cur = conn.cursor()
 
-    cur.execute("""
+    sql = """
         SELECT
             id,
             ten,
@@ -280,22 +283,36 @@ def lay_ds_loai_go(tu_khoa=""):
             rong,
             dai
         FROM loai_go
-        WHERE
-            hien_thi = TRUE
-            AND ten ILIKE %s
+        WHERE hien_thi = TRUE
+    """
+
+    params = []
+
+    # Lọc theo tên gỗ
+    if ten_go is not None:
+        sql += " AND ten = %s"
+        params.append(ten_go)
+
+    # Lọc theo quy cách (id loại gỗ)
+    if loai_go_id is not None:
+        sql += " AND id = %s"
+        params.append(loai_go_id)
+
+    sql += """
         ORDER BY
             ten,
-            day,
-            rong,
-            dai
-    """, (f"%{tu_khoa}%",))
+            day NULLS FIRST,
+            rong NULLS FIRST,
+            dai NULLS FIRST
+    """
+
+    cur.execute(sql, tuple(params))
 
     data = cur.fetchall()
 
     close_connection(conn)
 
     return data
-
 
 def them_loai_go(ten, kieu_tinh, day, rong, dai):
 
