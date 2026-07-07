@@ -5,7 +5,6 @@ from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.pagesizes import A4, landscape
-from datetime import datetime
 from reportlab.platypus import (
     SimpleDocTemplate,
     Table,
@@ -13,13 +12,13 @@ from reportlab.platypus import (
     Paragraph,
     Spacer,
 )
+from datetime import datetime
 
 from utils.pdf_font import dang_ky_font
 
 
 def tao_pdf_go_trong_ham(df, so_ham):
 
-    
     dang_ky_font()
 
     buffer = io.BytesIO()
@@ -44,32 +43,21 @@ def tao_pdf_go_trong_ham(df, so_ham):
     elements = []
 
     elements.append(
-        Paragraph(
-            "GỖ TRONG HẦM",
-            title
-        )
+        Paragraph("GỖ TRONG HẦM", title)
     )
-    elements.append(
-        Paragraph(
-            f"<b>Hầm sấy:</b> Hầm {so_ham}",
-            styles["Normal"]
-        )
-    )
-
-    elements.append(
-        Paragraph(
-            f"<b>Ngày xuất báo cáo:</b> {datetime.now().strftime('%d/%m/%Y %H:%M')}",
-            styles["Normal"]
-        )
-    )
-
-    elements.append(Spacer(1, 12))
 
     elements.append(Spacer(1, 10))
 
     elements.append(
         Paragraph(
-            f"<b>Ngày xuất báo cáo:</b> {datetime.now().strftime('%d/%m/%Y %H:%M')}",
+            f"Hầm sấy: Hầm {so_ham}",
+            styles["Normal"]
+        )
+    )
+
+    elements.append(
+        Paragraph(
+            f"Ngày xuất báo cáo: {datetime.now().strftime('%d/%m/%Y %H:%M')}",
             styles["Normal"]
         )
     )
@@ -86,7 +74,22 @@ def tao_pdf_go_trong_ham(df, so_ham):
 
     table = Table(
         data,
-        repeatRows=1
+        repeatRows=1,
+        colWidths=[
+            25,   # STT
+            55,   # Ngày nhập
+            40,   # Số phiếu
+            70,   # Khách hàng
+            70,   # Tên gỗ
+            35,   # Dày
+            35,   # Rộng
+            45,   # Dài
+            55,   # Kg
+            55,   # Thanh
+            45,   # M3
+            70,   # Ngày vào hầm
+            70    # Đã sấy
+        ]
     )
 
     table.setStyle(TableStyle([
@@ -103,7 +106,7 @@ def tao_pdf_go_trong_ham(df, so_ham):
         ("FONTNAME", (0, 1), (-1, -2), "DejaVu"),
         ("FONTNAME", (0, -1), (-1, -1), "DejaVu-Bold"),
 
-        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("FONTSIZE", (0, 0), (-1, -1), 7),
 
         ("BOTTOMPADDING", (0, 0), (-1, 0), 6),
         ("TOPPADDING", (0, 0), (-1, 0), 6),

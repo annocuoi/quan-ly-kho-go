@@ -61,7 +61,7 @@ def dialog_thu_hoi_ham():
         st.write(f"**Hầm:** {lo['so_ham']}")
         st.write(f"**Phiếu:** {lo['so_phieu']}")
         st.write(f"**Khách hàng:** {lo['khach_hang']}")
-        st.write(f"**Loại gỗ:** {lo['ten_go']}")
+        st.write(f"**Loại gỗ:** {lo['ten']}")
 
         if lo["kg"] is not None:
 
@@ -133,7 +133,7 @@ def dialog_thu_hoi_ham():
                 f"Hầm {row['so_ham']} | "
                 f"Phiếu {row['so_phieu']} | "
                 f"{row['khach_hang']} | "
-                f"{row['ten_go']} | "
+                f"{row['ten']} | "
                 f"{float(row['kg']):,.0f} kg"
             )
 
@@ -143,7 +143,8 @@ def dialog_thu_hoi_ham():
                 f"Hầm {row['so_ham']} | "
                 f"Phiếu {row['so_phieu']} | "
                 f"{row['khach_hang']} | "
-                f"{row['ten_go']} | "
+                f"{row['ten']} "
+                f"({int(row['day'])}×{int(row['rong'])}×{int(row['dai'])}) | "
                 f"{int(row['thanh']):,} thanh | "
                 f"{float(row['m3']):.3f} m³"
             )
@@ -166,7 +167,17 @@ def dialog_thu_hoi_ham():
         st.write(f"**Khách hàng:** {lo['khach_hang']}")
 
     with c2:
-        st.write(f"**Loại gỗ:** {lo['ten_go']}")
+        if lo["kg"] is not None:
+
+            st.write(f"**Loại gỗ:** {lo['ten']}")
+
+        else:
+
+            st.write(
+                f"**Loại gỗ:** "
+                f"{lo['ten']} "
+                f"({int(lo['day'])} × {int(lo['rong'])} × {int(lo['dai'])})"
+            )
 
         if lo["kg"] is not None:
 
@@ -213,8 +224,8 @@ def show():
     if "go_ra_ham" not in st.session_state:
         st.session_state.go_ra_ham = None
 
-    if "m3_duoc_chon" not in st.session_state:
-        st.session_state.m3_duoc_chon = None
+    if "go_dua_ham" not in st.session_state:
+        st.session_state.go_dua_ham = None
 
     if "ham_duoc_chon" not in st.session_state:
         st.session_state.ham_duoc_chon = None
@@ -293,6 +304,7 @@ def show():
         ):
             st.session_state.ra_ham = True
             st.session_state.them_vao_ham = False
+            st.session_state.go_dua_ham = None
             st.rerun()
     with c3:
 
@@ -303,55 +315,50 @@ def show():
             st.session_state.ham_duoc_chon = None
             st.session_state.them_vao_ham = False
             st.session_state.ra_ham = False
+            st.session_state.go_dua_ham = None
+            st.session_state.go_ra_ham = None
             st.rerun()
-
-    # =====================================================
-    # KHO TƯƠI (GỖ KG)
-    # =====================================================
-
     if st.session_state.them_vao_ham:
 
-        st.divider()
+        st.subheader("📥 Đưa vào hầm")
 
-        st.subheader("📥 Kho tươi (Gỗ KG)")
+        ds_kg = lay_kho_tuoi_kg()
+        ds_m3 = lay_kho_tuoi_m3()
 
-        c1, c2, c3, c4, c5, c6 = st.columns(
-            [1, 2, 3, 2, 2, 1]
-        )
+        ds = []
+
+        for x in ds_kg:
+            x["loai"] = "KG"
+            ds.append(x)
+
+        for x in ds_m3:
+            x["loai"] = "M3"
+            ds.append(x)
+
+        c1, c2, c3, c4, c5, c6 = st.columns([1,2,3,3,2,1])
 
         with c1:
             st.markdown("**Phiếu**")
-
         with c2:
             st.markdown("**Khách**")
-
         with c3:
             st.markdown("**Loại gỗ**")
-
         with c4:
-            st.markdown("**Loại**")
-
+            st.markdown("**Kích thước**")
         with c5:
-            st.markdown("**Khối lượng**")
-
+            st.markdown("**Số lượng**")
         with c6:
-            st.markdown("**Vào Hầm**")
+            st.markdown("**Vào hầm**")
 
         st.divider()
 
-        ds = lay_kho_tuoi_kg()
-
         if len(ds) == 0:
-
-            st.info("Không còn kiện gỗ nào.")
-
+            st.info("Kho tươi đang trống.")
         else:
 
             for dong in ds:
 
-                c1, c2, c3, c4, c5, c6 = st.columns(
-                    [1, 2, 3, 2, 2, 1]
-                )
+                c1,c2,c3,c4,c5,c6 = st.columns([1,2,3,3,2,1])
 
                 with c1:
                     st.write(dong["so_phieu"])
@@ -360,158 +367,114 @@ def show():
                     st.write(dong["khach_hang"])
 
                 with c3:
-                    st.write(dong["ten_go"])
+                    st.write(dong["ten"])
 
                 with c4:
-                    st.write("KG")
-
-                with c5:
-                    st.write(f"{dong['kg']:,.0f} kg")
-
-                with c6:
-
-                    if st.button(
-                        "📥",
-                        key=f"dua_{dong['id']}"
-                    ):
-
-                        dua_kg_vao_ham(
-                            dong["id"],
-                            so_ham
+                    if dong["loai"] == "KG":
+                        st.write("•")
+                    else:
+                        st.write(
+                            f'{int(dong["day"])} × '
+                            f'{int(dong["rong"])} × '
+                            f'{int(dong["dai"])}'
                         )
 
-                        st.success("Đã đưa vào hầm.")
+                with c5:
+                    if dong["loai"] == "KG":
+                        st.write(f'{dong["kg"]:,.0f} kg')
+                    else:
+                        st.write(f'{int(dong["thanh"]):,} thanh')
 
+                with c6:
+                    if st.button("📥", key=f'dua_{dong["loai"]}_{dong["id"]}'):
+
+                        st.session_state.go_dua_ham = dong
                         st.rerun()
+    if st.session_state.go_dua_ham is not None:
 
-        st.divider()
+        dong = st.session_state.go_dua_ham
 
-        st.subheader("📥 Kho tươi (Gỗ M³)")
+        st.warning("⚠ Xác nhận đưa vào hầm")
 
-        c1, c2, c3, c4, c5, c6, c7 = st.columns(
-            [1, 2, 2.5, 3, 2, 2, 1]
-        )
+        st.write(f"**Số phiếu:** {dong['so_phieu']}")
+        st.write(f"**Khách hàng:** {dong['khach_hang']}")
+        st.write(f"**Loại gỗ:** {dong['ten']}")
 
-        with c1:
-            st.markdown("**Phiếu**")
+        if dong["loai"] == "KG":
 
-        with c2:
-            st.markdown("**Khách**")
+            st.write(f"**Khối lượng còn:** {dong['kg']:,.0f} kg")
 
-        with c3:
-            st.markdown("**Loại gỗ**")
-
-        with c4:
-            st.markdown("**Kích thước**")
-
-        with c5:
-            st.markdown("**Thanh**")
-
-        with c6:
-            st.markdown("**M³**")
-
-        with c7:
-            st.markdown("**Vào Hầm**")
-
-        st.divider()
-
-        ds_m3 = lay_kho_tuoi_m3()
-
-        if len(ds_m3) == 0:
-
-            st.info("Không còn gỗ M³ trong kho.")
+            kg = st.number_input(
+                "Kg đưa vào",
+                min_value=0.0,
+                max_value=float(dong["kg"]),
+                value=0.0,
+                step=1.0,
+                format="%.0f",
+                key="kg_dua_ham"
+            )
 
         else:
 
-            for dong in ds_m3:
+            st.write(f"**Thanh còn:** {int(dong['thanh']):,}")
+            st.write(f"**M³ còn:** {dong['m3']:.3f}")
 
-                c1, c2, c3, c4, c5, c6, c7 = st.columns(
-                    [1, 2, 2.5, 3, 2, 2, 1]
-                )
-
-                with c1:
-                    st.write(dong["so_phieu"])
-
-                with c2:
-                    st.write(dong["khach_hang"])
-
-                with c3:
-                    st.write(dong["ten_go"])
-
-                with c4:
-                    st.write(
-                        f"{int(dong['day'])} × "
-                        f"{int(dong['rong'])} × "
-                        f"{int(dong['dai'])}"
-                    )
-
-                with c5:
-                    st.write(f"{int(dong['thanh']):,}")
-
-                with c6:
-                    st.write(f"{dong['m3']:.3f}")
-
-                with c7:
-
-                    if st.button(
-                        "📥",
-                        key=f"dua_m3_{dong['id']}"
-                    ):
-                        st.session_state.m3_duoc_chon = dong
-
-        if st.session_state.m3_duoc_chon is not None:
-
-            dong = st.session_state.m3_duoc_chon
-
-            st.divider()
-
-            st.subheader("📦 Đưa gỗ vào hầm")
-
-            st.write(f"**Khách hàng:** {dong['khach_hang']}")
-            st.write(f"**Loại gỗ:** {dong['ten_go']}")
+            thanh = st.number_input(
+                "Thanh đưa vào",
+                min_value=1,
+                max_value=int(dong["thanh"]),
+                value=1,
+                step=1,
+                key="thanh_dua_ham"
+            )
 
             st.info(
-                f"Còn lại: {int(dong['thanh']):,} thanh | {dong['m3']:.3f} m³"
+                f"≈ {dong['m3'] * thanh / dong['thanh']:.3f} m³"
             )
 
-            so_thanh = st.number_input(
-                "Số thanh đưa vào",
-                min_value=1,
-                step=1,
-                format="%d"
-            )
+        c1, c2 = st.columns(2)
 
-            if so_thanh > dong["thanh"]:
+        with c1:
 
-                st.error(
-                    f"❌ Chỉ còn {int(dong['thanh']):,} thanh."
-                )
+            if st.button(
+                "Hủy",
+                use_container_width=True,
+                key="huy_dua_ham"
+            ):
 
-            else:
+                st.session_state.go_dua_ham = None
+                st.rerun()
 
-                m3 = dong["m3"] * so_thanh / dong["thanh"]
+        with c2:
 
-                st.success(
-                    f"≈ {m3:.3f} m³"
-                )
+            if st.button(
+                "📥 Xác nhận",
+                type="primary",
+                use_container_width=True,
+                key="xac_nhan_dua_ham"
+            ):
 
-                if st.button(
-                    "✅ Xác nhận",
-                    type="primary"
-                ):
+                if dong["loai"] == "KG":
+
+                    dua_kg_vao_ham(
+                        dong["id"],
+                        so_ham
+                    )
+
+                else:
 
                     dua_m3_vao_ham(
                         dong["id"],
                         so_ham,
-                        so_thanh
+                        thanh
                     )
 
-                    st.session_state.m3_duoc_chon = None
+                st.success("Đã đưa vào hầm.")
 
-                    st.success("Đã đưa gỗ vào hầm.")
+                st.session_state.go_dua_ham = None
+                st.session_state.them_vao_ham = False
 
-                    st.rerun()
-
+                st.rerun()
     # ==========================================
     # RA HẦM
     # ==========================================
@@ -570,7 +533,7 @@ def show():
                     st.write(dong["khach_hang"])
 
                 with c3:
-                    st.write(dong["ten_go"])
+                    st.write(dong["ten"])
 
                 with c4:
 
@@ -616,7 +579,7 @@ def show():
 
         st.write(f"**Số phiếu:** {dong['so_phieu']}")
         st.write(f"**Khách hàng:** {dong['khach_hang']}")
-        st.write(f"**Loại gỗ:** {dong['ten_go']}")
+        st.write(f"**Loại gỗ:** {dong['ten']}")
 
         if dong["kg"] is not None:
 
@@ -624,11 +587,11 @@ def show():
 
             kg_ra = st.number_input(
                 "Kg muốn ra",
-                min_value=0.001,
+                min_value=0.0,
                 max_value=float(dong["kg"]),
                 value=float(dong["kg"]),
-                step=0.001,
-                format="%.3f"
+                step=1.0,
+                format="%.0f"
             )
 
         else:
@@ -722,7 +685,6 @@ def show():
             "Số phiếu",
             "Khách hàng",
             "Tên gỗ",
-            "Ký hiệu",
             "Dày",
             "Rộng",
             "Dài",
@@ -740,15 +702,14 @@ def show():
             df["Ngày nhập"]
         ).dt.strftime("%d/%m/%Y")
 
-        ngay_vao = pd.to_datetime(df["Ngày vào hầm"])
+        ngay_vao = pd.to_datetime(
+            df["Ngày vào hầm"],
+            utc=True
+        )
 
         VN = ZoneInfo("Asia/Ho_Chi_Minh")
 
-        ngay_vao_vn = (
-            ngay_vao
-            .dt.tz_localize("UTC")
-            .dt.tz_convert(VN)
-        )
+        ngay_vao_vn = ngay_vao.dt.tz_convert(VN)
 
         df["Đã sấy"] = ngay_vao.apply(
             lambda x: (
@@ -778,20 +739,33 @@ def show():
         df["M³"] = df["M³"].apply(
             lambda x: "" if pd.isna(x) else f"{x:.3f}"
         )
+        tong_kg = pd.to_numeric(
+            df["Kg"].astype(str).str.replace(",", ""),
+            errors="coerce"
+        ).fillna(0).sum()
+
+        tong_thanh = pd.to_numeric(
+            df["Thanh"].astype(str).str.replace(",", ""),
+            errors="coerce"
+        ).fillna(0).sum()
+
+        tong_m3 = pd.to_numeric(
+            df["M³"],
+            errors="coerce"
+        ).fillna(0).sum()
 
         tong = {
-            "STT": "TỔNG CỘNG",
-            "Ngày nhập": "",
+            "STT": "",
+            "Ngày nhập": "TỔNG CỘNG",
             "Số phiếu": "",
             "Khách hàng": "",
             "Tên gỗ": "",
-            "Ký hiệu": "",
             "Dày": "",
             "Rộng": "",
             "Dài": "",
-            "Kg": df["Kg"].replace("", "0").sum(),
-            "Thanh": df["Thanh"].replace("", "0").sum(),
-            "M³": df["M³"].replace("", "0").sum(),
+            "Kg": f"{tong_kg:,.0f}" if tong_kg else "",
+            "Thanh": f"{tong_thanh:,.0f}" if tong_thanh else "",
+            "M³": f"{tong_m3:.3f}" if tong_m3 else "",
             "Ngày vào hầm": "",
             "Đã sấy": ""
         }

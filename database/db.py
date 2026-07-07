@@ -56,9 +56,7 @@ def tao_database():
 
             id SERIAL PRIMARY KEY,
 
-            ma_go VARCHAR(50) UNIQUE NOT NULL,
-
-            ten_go VARCHAR(255) NOT NULL,
+            ten VARCHAR(255) NOT NULL,
 
             kieu_tinh VARCHAR(20) NOT NULL DEFAULT 'M3',
 
@@ -66,7 +64,9 @@ def tao_database():
 
             rong DOUBLE PRECISION,
 
-            dai DOUBLE PRECISION
+            dai DOUBLE PRECISION,
+
+            hien_thi BOOLEAN DEFAULT TRUE
 
         )
     """)
@@ -122,20 +122,142 @@ def tao_database():
 
             loai_go_id INTEGER NOT NULL,
 
-            so_thanh INTEGER NOT NULL,
+            so_thanh INTEGER,
+
+            so_thanh_con_lai INTEGER,
 
             so_luong DOUBLE PRECISION NOT NULL,
+
+            so_luong_con_lai DOUBLE PRECISION NOT NULL,
 
             don_gia DOUBLE PRECISION NOT NULL,
 
             thanh_tien DOUBLE PRECISION NOT NULL,
 
+            trang_thai VARCHAR(20) NOT NULL DEFAULT 'TUOI',
+
             FOREIGN KEY(phieu_nhap_id)
-            REFERENCES phieu_nhap(id)
-            ON DELETE CASCADE,
+                REFERENCES phieu_nhap(id)
+                ON DELETE CASCADE,
 
             FOREIGN KEY(loai_go_id)
-            REFERENCES loai_go(id)
+                REFERENCES loai_go(id)
+
+        )
+    """)
+
+    # =========================
+    # HẦM SẤY
+    # =========================
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS ham_say(
+
+            id SERIAL PRIMARY KEY,
+
+            chi_tiet_phieu_nhap_id INTEGER NOT NULL,
+
+            so_ham INTEGER NOT NULL,
+
+            so_luong DOUBLE PRECISION,
+
+            so_thanh INTEGER,
+
+            trang_thai VARCHAR(20) DEFAULT 'DANG_SAY',
+
+            ngay_vao TIMESTAMP DEFAULT NOW(),
+
+            ngay_ra TIMESTAMP,
+
+            da_ra_ham BOOLEAN DEFAULT FALSE,
+
+            FOREIGN KEY(chi_tiet_phieu_nhap_id)
+                REFERENCES chi_tiet_phieu_nhap(id)
+                ON DELETE CASCADE
+
+        )
+    """)
+
+    # =========================
+    # KHO KHÔ
+    # =========================
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS kho_kho(
+
+            id SERIAL PRIMARY KEY,
+
+            ham_say_id INTEGER NOT NULL UNIQUE,
+
+            ngay_vao TIMESTAMP DEFAULT NOW(),
+
+            FOREIGN KEY(ham_say_id)
+                REFERENCES ham_say(id)
+                ON DELETE CASCADE
+
+        )
+    """)
+
+    # =========================
+    # LỊCH SỬ HẦM SẤY
+    # =========================
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS lich_su_ham(
+
+            id SERIAL PRIMARY KEY,
+
+            ham_say_id INTEGER,
+
+            chi_tiet_phieu_nhap_id INTEGER NOT NULL,
+
+            so_ham INTEGER NOT NULL,
+
+            hanh_dong VARCHAR(20) NOT NULL,
+
+            loai_hang VARCHAR(20) NOT NULL,
+
+            so_luong DOUBLE PRECISION,
+
+            so_thanh INTEGER,
+
+            ngay TIMESTAMP DEFAULT NOW(),
+
+            FOREIGN KEY(ham_say_id)
+                REFERENCES ham_say(id)
+                ON DELETE SET NULL,
+
+            FOREIGN KEY(chi_tiet_phieu_nhap_id)
+                REFERENCES chi_tiet_phieu_nhap(id)
+                ON DELETE CASCADE
+
+        )
+    """)
+
+    # =========================
+    # CÔNG NỢ
+    # =========================
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS cong_no(
+
+            id SERIAL PRIMARY KEY,
+
+            khach_hang_id INTEGER NOT NULL,
+
+            ngay DATE NOT NULL,
+
+            loai VARCHAR(30) NOT NULL,
+
+            so_tien DOUBLE PRECISION NOT NULL,
+
+            phieu_nhap_id INTEGER,
+
+            ghi_chu TEXT,
+
+            FOREIGN KEY(khach_hang_id)
+                REFERENCES khach_hang(id)
+                ON DELETE CASCADE,
+
+            FOREIGN KEY(phieu_nhap_id)
+                REFERENCES phieu_nhap(id)
+                ON DELETE CASCADE
 
         )
     """)
@@ -147,16 +269,26 @@ def tao_database():
 def lay_ds_loai_go(tu_khoa=""):
 
     conn = get_connection()
-
     cur = conn.cursor()
 
     cur.execute("""
-        SELECT *
+        SELECT
+            id,
+            ten,
+            kieu_tinh,
+            day,
+            rong,
+            dai
         FROM loai_go
-        WHERE ma_go LIKE %s
-           OR ten_go LIKE %s
-        ORDER BY ten_go
-    """, (f"%{tu_khoa}%", f"%{tu_khoa}%"))
+        WHERE
+            hien_thi = TRUE
+            AND ten ILIKE %s
+        ORDER BY
+            ten,
+            day,
+            rong,
+            dai
+    """, (f"%{tu_khoa}%",))
 
     data = cur.fetchall()
 
@@ -165,8 +297,13 @@ def lay_ds_loai_go(tu_khoa=""):
     return data
 
 
-def them_loai_go(ma_go, ten_go, kieu_tinh, day, rong, dai):
+def them_loai_go(ten, kieu_tinh, day, rong, dai):
 
+    if kieu_tinh == "TRONG_LUONG":
+        day = None
+        rong = None
+        dai = None
+        
     conn = get_connection()
 
     cur = conn.cursor()
@@ -174,9 +311,7 @@ def them_loai_go(ma_go, ten_go, kieu_tinh, day, rong, dai):
     cur.execute("""
         INSERT INTO loai_go(
 
-            ma_go,
-
-            ten_go,
+            ten,
 
             kieu_tinh,
 
@@ -188,15 +323,20 @@ def them_loai_go(ma_go, ten_go, kieu_tinh, day, rong, dai):
 
         )
 
-        VALUES(%s,%s,%s,%s,%s,%s)
-    """, (ma_go, ten_go, kieu_tinh, day, rong, dai))
+        VALUES(%s,%s,%s,%s,%s)
+    """, ( ten, kieu_tinh, day, rong, dai))
 
     conn.commit()
 
     close_connection(conn)
 
-def sua_loai_go(id, ma_go, ten_go, kieu_tinh, day, rong, dai):
+def sua_loai_go(id,  ten, kieu_tinh, day, rong, dai):
 
+    if kieu_tinh == "TRONG_LUONG":
+        day = None
+        rong = None
+        dai = None
+        
     conn = get_connection()
 
     cur = conn.cursor()
@@ -206,9 +346,7 @@ def sua_loai_go(id, ma_go, ten_go, kieu_tinh, day, rong, dai):
 
         SET
 
-            ma_go=%s,
-
-            ten_go=%s,
+            ten=%s,
 
             kieu_tinh=%s,
 
@@ -219,7 +357,7 @@ def sua_loai_go(id, ma_go, ten_go, kieu_tinh, day, rong, dai):
             dai=%s
 
         WHERE id=%s
-    """, (ma_go, ten_go, kieu_tinh, day, rong, dai, id))
+    """, ( ten, kieu_tinh, day, rong, dai, id))
 
     conn.commit()
 
@@ -233,7 +371,8 @@ def xoa_loai_go(id):
     cur = conn.cursor()
 
     cur.execute("""
-        DELETE FROM loai_go
+        UPDATE loai_go
+        SET hien_thi = FALSE
         WHERE id=%s
     """, (id,))
 
@@ -456,9 +595,7 @@ def lay_chi_tiet_phieu_nhap(phieu_id):
 
             lg.id AS loai_go_id,
 
-            lg.ma_go,
-
-            lg.ten_go,
+            lg.ten,
 
             lg.kieu_tinh,
 
@@ -593,7 +730,13 @@ def xoa_phieu_nhap(id):
 
     close_connection(conn)
 
-def lay_bao_cao_nhap(tu_ngay, den_ngay, khach_hang_id=None):
+def lay_bao_cao_nhap(
+    tu_ngay,
+    den_ngay,
+    khach_hang_id=None,
+    ten_go=None,
+    loai_go_id=None
+):
 
     conn = get_connection()
     cur = conn.cursor()
@@ -604,8 +747,7 @@ def lay_bao_cao_nhap(tu_ngay, den_ngay, khach_hang_id=None):
             pn.so_phieu,
             kh.ten AS khach_hang,
 
-            lg.ten_go,
-            lg.ma_go,
+            lg.ten,
 
             lg.day,
             lg.rong,
@@ -643,7 +785,8 @@ def lay_bao_cao_nhap(tu_ngay, den_ngay, khach_hang_id=None):
         JOIN loai_go lg
             ON ct.loai_go_id = lg.id
 
-        WHERE pn.ngay BETWEEN %s AND %s
+        WHERE
+            pn.ngay BETWEEN %s AND %s
     """
 
     params = [tu_ngay, den_ngay]
@@ -652,11 +795,21 @@ def lay_bao_cao_nhap(tu_ngay, den_ngay, khach_hang_id=None):
         sql += " AND pn.khach_hang_id = %s"
         params.append(khach_hang_id)
 
+    # Lọc theo tên gỗ
+    if ten_go is not None:
+        sql += " AND lg.ten = %s"
+        params.append(ten_go)
+
+    # Lọc theo quy cách
+    if loai_go_id is not None:
+        sql += " AND lg.id = %s"
+        params.append(loai_go_id)
+
     sql += """
         ORDER BY
-            pn.ngay ASC,
-            pn.so_phieu ASC,
-            ct.id ASC
+            pn.ngay,
+            pn.so_phieu,
+            ct.id
     """
 
     cur.execute(sql, tuple(params))
@@ -667,7 +820,11 @@ def lay_bao_cao_nhap(tu_ngay, den_ngay, khach_hang_id=None):
 
     return ds
 
-def lay_kho_tuoi(khach_hang_id=None, loai_go_id=None):
+def lay_kho_tuoi(
+    khach_hang_id=None,
+    ten_go=None,
+    loai_go_id=None
+):
 
     conn = get_connection()
     cur = conn.cursor()
@@ -679,8 +836,7 @@ def lay_kho_tuoi(khach_hang_id=None, loai_go_id=None):
             pn.so_phieu,
             kh.ten AS khach_hang,
 
-            lg.ten_go,
-            lg.ma_go,
+            lg.ten,
 
             lg.day,
             lg.rong,
@@ -737,6 +893,12 @@ def lay_kho_tuoi(khach_hang_id=None, loai_go_id=None):
         sql += " AND pn.khach_hang_id = %s"
         params.append(khach_hang_id)
 
+    # Lọc theo tên gỗ
+    if ten_go is not None:
+        sql += " AND lg.ten = %s"
+        params.append(ten_go)
+
+    # Nếu đã chọn quy cách thì lọc tiếp theo id
     if loai_go_id is not None:
         sql += " AND lg.id = %s"
         params.append(loai_go_id)
@@ -822,8 +984,7 @@ def lay_chi_tiet_ham(so_ham):
             pn.so_phieu,
             kh.ten AS khach_hang,
                 
-            lg.ten_go,
-            lg.ma_go,
+            lg.ten,
 
             lg.day,
             lg.rong,
@@ -913,8 +1074,7 @@ def lay_kho_tuoi_kg():
             pn.so_phieu,
             kh.ten AS khach_hang,
 
-            lg.ten_go,
-            lg.ma_go,
+            lg.ten,
 
             ct.so_luong AS kg
 
@@ -1012,8 +1172,7 @@ def lay_kho_tuoi_m3():
 
             kh.ten AS khach_hang,
 
-            lg.ten_go,
-            lg.ma_go,
+            lg.ten,
 
             lg.day,
             lg.rong,
@@ -1377,8 +1536,7 @@ def lay_kho_kho(
 
             kh.ten AS khach_hang,
 
-            lg.ten_go,
-            lg.ma_go,
+            lg.ten,
 
             lg.day,
             lg.rong,
@@ -1749,8 +1907,7 @@ def lay_kho_da_phan_loai(
 
             kh.ten AS khach_hang,
 
-            lg.ten_go,
-            lg.ma_go,
+            lg.ten,
 
             kp.day,
             kp.rong,
@@ -1813,7 +1970,7 @@ def lay_kho_da_phan_loai(
 
             kh.ten,
 
-            lg.ten_go,
+            lg.ten,
 
             pn.so_phieu
     """
@@ -1842,8 +1999,11 @@ def lay_ds_thu_hoi_ham():
 
             kh.ten AS khach_hang,
 
-            lg.ten_go,
-            lg.ma_go,
+            lg.ten,
+                
+            lg.day,
+            lg.rong,
+            lg.dai,
 
             CASE
                 WHEN lg.kieu_tinh='TRONG_LUONG'
@@ -2032,6 +2192,7 @@ def lay_lich_su_ham(
     tu_ngay,
     den_ngay,
     khach_hang_id=None,
+    ten_go=None,
     loai_go_id=None,
     hanh_dong=None
 ):
@@ -2050,7 +2211,7 @@ def lay_lich_su_ham(
 
             kh.ten,
 
-            lg.ten_go,
+            lg.ten AS ten_go,
 
             ls.hanh_dong,
 
@@ -2082,15 +2243,21 @@ def lay_lich_su_ham(
     params = [tu_ngay, den_ngay]
 
     if khach_hang_id is not None:
-        sql += " AND kh.id=%s"
+        sql += " AND kh.id = %s"
         params.append(khach_hang_id)
 
+    # Lọc theo tên gỗ
+    if ten_go is not None:
+        sql += " AND lg.ten = %s"
+        params.append(ten_go)
+
+    # Lọc theo quy cách
     if loai_go_id is not None:
-        sql += " AND lg.id=%s"
+        sql += " AND lg.id = %s"
         params.append(loai_go_id)
 
     if hanh_dong not in (None, "", "Tất cả"):
-        sql += " AND ls.hanh_dong=%s"
+        sql += " AND ls.hanh_dong = %s"
         params.append(hanh_dong)
 
     sql += """
@@ -2099,7 +2266,7 @@ def lay_lich_su_ham(
             ls.id DESC
     """
 
-    cur.execute(sql, params)
+    cur.execute(sql, tuple(params))
 
     data = cur.fetchall()
 
@@ -2302,6 +2469,52 @@ def lay_lich_su_cong_no(khach_hang_id):
             cn.ngay,
             cn.id
     """, (khach_hang_id,))
+
+    data = cur.fetchall()
+
+    close_connection(conn)
+
+    return data
+
+def lay_ds_ten_go():
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT DISTINCT ten
+        FROM loai_go
+        WHERE hien_thi = TRUE
+        ORDER BY ten
+    """)
+
+    data = cur.fetchall()
+
+    close_connection(conn)
+
+    return data
+
+def lay_ds_quy_cach(ten_go):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT
+            id,
+            day,
+            rong,
+            dai
+        FROM loai_go
+        WHERE
+            hien_thi = TRUE
+            AND ten=%s
+            AND kieu_tinh='M3'
+        ORDER BY
+            day,
+            rong,
+            dai
+    """, (ten_go,))
 
     data = cur.fetchall()
 

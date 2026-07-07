@@ -154,7 +154,6 @@ def tao_pdf(phieu, rows):
 
     data = [[
         "STT",
-        "Mã",
         "Loại gỗ",
         "Dày",
         "Rộng",
@@ -193,7 +192,6 @@ def tao_pdf(phieu, rows):
 
         data.append([
             Paragraph(str(r["STT"]), cell_style),
-            Paragraph(str(r["Mã"]), cell_style),
             Paragraph(str(r["Loại gỗ"]), cell_style),
             Paragraph(str(r["Dày"]), cell_style),
             Paragraph(str(r["Rộng"]), cell_style),
@@ -224,7 +222,6 @@ def tao_pdf(phieu, rows):
 
     data.append([
         Paragraph("", tong_style),
-        Paragraph("", tong_style),
         Paragraph("TỔNG CỘNG", tong_style),
         Paragraph("", tong_style),
         Paragraph("", tong_style),
@@ -240,7 +237,6 @@ def tao_pdf(phieu, rows):
         data,
         colWidths=[
             25,   # STT
-            60,   # Mã
             70,   # Loại gỗ
             33,   # Dày
             37,   # Rộng
@@ -351,11 +347,14 @@ def show():
                 kg = f"{dong['so_luong']:,.0f}"
                 thanh = ""
                 m3 = ""
+            if dong["kieu_tinh"] == "M3":
+                ten_go = f'{dong["ten"]} - {int(dong["day"])}×{int(dong["rong"])}×{int(dong["dai"])}'
+            else:
+                ten_go = f'{dong["ten"]} (KG)'
 
             rows.append({
                 "STT": i,
-                "Mã": dong["ma_go"],
-                "Loại gỗ": dong["ten_go"],
+                "Loại gỗ": ten_go,
                 "Dày": day,
                 "Rộng": rong,
                 "Dài": dai,
@@ -380,7 +379,6 @@ def show():
 
         df.loc[len(df)] = {
             "STT": "",
-            "Mã": "",
             "Loại gỗ": "TỔNG CỘNG",
             "Dày": "",
             "Rộng": "",
@@ -401,7 +399,6 @@ def show():
 
             df_excel = pd.DataFrame([{
                 "STT": r["STT"],
-                "Mã": r["Mã"],
                 "Loại gỗ": r["Loại gỗ"],
                 "Dày": r["Dày"],
                 "Rộng": r["Rộng"],
@@ -416,7 +413,6 @@ def show():
             # ===== Thêm dòng tổng =====
             df_excel.loc[len(df_excel)] = {
                 "STT": "",
-                "Mã": "",
                 "Loại gỗ": "TỔNG CỘNG",
                 "Dày": "",
                 "Rộng": "",
@@ -522,19 +518,60 @@ def show():
         st.divider()
         ds_go = lay_ds_loai_go()
         if not ds_go: st.warning("Chưa có loại gỗ."); st.stop()
-        ds_ten_go = ["-- Chọn loại gỗ --"] + [f'{x["ma_go"]} - {x["ten_go"]}' for x in ds_go]
+        ds_ten_go = ["-- Chọn loại gỗ --"]
+
+        for x in ds_go:
+
+            if x["kieu_tinh"] == "M3":
+
+                ds_ten_go.append(
+                    f'{x["ten"]} - {int(x["day"])}×{int(x["rong"])}×{int(x["dai"])}'
+                )
+
+            else:
+
+                ds_ten_go.append(
+                    f'{x["ten"]} (KG)'
+                )
 
         index_mac_dinh = 0
         df_sua = None
         if st.session_state.dong_sua is not None:
+
             df_sua = st.session_state.phieu_nhap_tam[st.session_state.dong_sua]
-            ten_go_sua = f'{df_sua["ma_go"]} - {df_sua["ten_go"]}'
-            if ten_go_sua in ds_ten_go: index_mac_dinh = ds_ten_go.index(ten_go_sua)
+
+            if df_sua["kieu_tinh"] == "M3":
+
+                ten_go_sua = (
+                    f'{df_sua["ten"]} - '
+                    f'{int(df_sua["day"])}×'
+                    f'{int(df_sua["rong"])}×'
+                    f'{int(df_sua["dai"])}'
+                )
+
+            else:
+
+                ten_go_sua = f'{df_sua["ten"]} (KG)'
+
+            if ten_go_sua in ds_ten_go:
+                index_mac_dinh = ds_ten_go.index(ten_go_sua)
 
         ten_go = st.selectbox("Loại gỗ", ds_ten_go, index=index_mac_dinh, key=f"go_select_v_{st.session_state.version_selectbox}")
 
         if ten_go != "-- Chọn loại gỗ --":
-            loai_go = next(x for x in ds_go if f'{x["ma_go"]} - {x["ten_go"]}' == ten_go)
+            loai_go = next(
+
+                x
+
+                for x in ds_go
+
+                if (
+                    f'{x["ten"]} - {int(x["day"])}×{int(x["rong"])}×{int(x["dai"])}'
+                    if x["kieu_tinh"] == "M3"
+                    else f'{x["ten"]} (KG)'
+                ) == ten_go
+
+            )
             gia_tri_don_gia = float(df_sua["don_gia"]) if df_sua else 0.0
             gia_tri_thanh = int(df_sua["so_thanh"]) if df_sua else 1
             gia_tri_kg = float(df_sua["so_luong"]) if (df_sua and df_sua["kieu_tinh"] != "M3") else 0.0
@@ -552,7 +589,7 @@ def show():
             if st.session_state.dong_sua is None:
                 if st.button("➕ Thêm vào phiếu", width="stretch"):
                     st.session_state.phieu_nhap_tam.append({
-                        "loai_go_id": loai_go["id"], "ma_go": loai_go["ma_go"], "ten_go": loai_go["ten_go"],
+                        "loai_go_id": loai_go["id"], "ten": loai_go["ten"],
                         "day": loai_go["day"], "rong": loai_go["rong"], "dai": loai_go["dai"],
                         "kieu_tinh": loai_go["kieu_tinh"], "so_thanh": so_thanh, "so_luong": so_luong,
                         "don_gia": don_gia, "thanh_tien": so_luong * don_gia
@@ -563,7 +600,7 @@ def show():
                 with col_cap_nhat:
                     if st.button("💾 Cập nhật dòng", width="stretch", type="primary"):
                         st.session_state.phieu_nhap_tam[st.session_state.dong_sua] = {
-                            "loai_go_id": loai_go["id"], "ma_go": loai_go["ma_go"], "ten_go": loai_go["ten_go"],
+                            "loai_go_id": loai_go["id"], "ten": loai_go["ten"],
                             "day": loai_go["day"], "rong": loai_go["rong"], "dai": loai_go["dai"],
                             "kieu_tinh": loai_go["kieu_tinh"], "so_thanh": so_thanh, "so_luong": so_luong,
                             "don_gia": don_gia, "thanh_tien": so_luong * don_gia
@@ -579,30 +616,76 @@ def show():
         if not st.session_state.phieu_nhap_tam:
             st.info("Chưa có gỗ trong danh sách.")
         else:
-            c1, c2, c3, c4, c5, c6, c7, c8, c9 = st.columns([2, 4, 4, 2, 2, 2, 3, 1, 1])
-            c1.write("**Mã**"); c2.write("**Loại gỗ**"); c3.write("**Quy cách**"); c4.write("**Thanh**"); c5.write("**SL**"); c6.write("**Đơn giá**"); c7.write("**Thành tiền**"); c8.write("✏️"); c9.write("🗑")
+            c1, c2, c3, c4, c5, c6, c7, c8 = st.columns(
+                [4, 4, 2, 2, 2, 3, 1, 1]
+            )
+
+            c1.write("**Loại gỗ**")
+            c2.write("**Quy cách**")
+            c3.write("**Thanh**")
+            c4.write("**SL**")
+            c5.write("**Đơn giá**")
+            c6.write("**Thành tiền**")
+            c7.write("✏️")
+            c8.write("🗑")
+
             st.divider()
 
             for i, dong in enumerate(st.session_state.phieu_nhap_tam):
-                c1, c2, c3, c4, c5, c6, c7, c8, c9 = st.columns([2, 4, 4, 2, 2, 2, 3, 1, 1])
+
+                c1, c2, c3, c4, c5, c6, c7, c8 = st.columns(
+                    [4, 4, 2, 2, 2, 3, 1, 1]
+                )
+
                 prefix = "👉 " if st.session_state.dong_sua == i else ""
-                c1.write(f"{prefix}{dong['ma_go']}"); c2.write(dong["ten_go"])
+
                 if dong["kieu_tinh"] == "M3":
-                    c3.write(f'{int(dong["day"])} × {int(dong["rong"])} × {int(dong["dai"])}'); c4.write(str(dong["so_thanh"])); c5.write(f'{dong["so_luong"]:.4f} m³')
+                    ten_go = dong["ten"]
+
+                    quy_cach = (
+                        f'{int(dong["day"])} × '
+                        f'{int(dong["rong"])} × '
+                        f'{int(dong["dai"])}'
+                    )
+
+                    thanh = str(dong["so_thanh"])
+                    so_luong = f'{dong["so_luong"]:.4f} m³'
+
                 else:
-                    c3.write("-"); c4.write("-"); c5.write(f'{dong["so_luong"]:,.0f} Kg')
-                c6.write(f'{dong["don_gia"]:,.0f}'); c7.write(f'{dong["thanh_tien"]:,.0f} đ')
+                    ten_go = dong["ten"]
+
+                    quy_cach = "KG"
+
+                    thanh = "-"
+
+                    so_luong = f'{dong["so_luong"]:,.0f} Kg'
+
+                c1.write(prefix + ten_go)
+                c2.write(quy_cach)
+                c3.write(thanh)
+                c4.write(so_luong)
+                c5.write(f'{dong["don_gia"]:,.0f}')
+                c6.write(f'{dong["thanh_tien"]:,.0f} đ')
+
                 tong_tien += dong["thanh_tien"]
 
-                if c8.button("✏️", key=f"sua_dong_{i}"): st.session_state.dong_sua = i; st.session_state.version_selectbox += 1; st.rerun()
-                if c9.button("🗑", key=f"xoa_{i}"):
-                    if st.session_state.dong_sua == i: st.session_state.dong_sua = None; st.session_state.version_selectbox += 1
-                    st.session_state.phieu_nhap_tam.pop(i); st.rerun()
+                if c7.button("✏️", key=f"sua_dong_{i}"):
+                    st.session_state.dong_sua = i
+                    st.session_state.version_selectbox += 1
+                    st.rerun()
+
+                if c8.button("🗑", key=f"xoa_{i}"):
+
+                    if st.session_state.dong_sua == i:
+                        st.session_state.dong_sua = None
+                        st.session_state.version_selectbox += 1
+
+                    st.session_state.phieu_nhap_tam.pop(i)
+                    st.rerun()
 
             st.divider()
             st.metric("Tổng tiền", f"{tong_tien:,.0f}")
             st.divider()
-
             ten_nut_luu = "💾 Lưu phiếu mới" if st.session_state.id_phieu_dang_sua is None else "💾 Cập nhật phiếu cũ"
 
             if st.button(ten_nut_luu, type="primary", width="stretch"):
@@ -688,9 +771,16 @@ def show():
                     ct_go_cu = lay_chi_tiet_phieu_nhap(row["id"]); st.session_state.phieu_nhap_tam = []
                     for dong in ct_go_cu:
                         st.session_state.phieu_nhap_tam.append({
-                            "loai_go_id": dong["loai_go_id"], "ma_go": dong["ma_go"], "ten_go": dong["ten_go"],
-                            "day": dong["day"], "rong": dong["rong"], "dai": dong["dai"], "kieu_tinh": dong["kieu_tinh"],
-                            "so_thanh": dong["so_thanh"], "so_luong": dong["so_luong"], "don_gia": dong["don_gia"], "thanh_tien": dong["thanh_tien"]
+                            "loai_go_id": dong["loai_go_id"],
+                            "ten": dong["ten"],
+                            "day": dong["day"],
+                            "rong": dong["rong"],
+                            "dai": dong["dai"],
+                            "kieu_tinh": dong["kieu_tinh"],
+                            "so_thanh": dong["so_thanh"],
+                            "so_luong": dong["so_luong"],
+                            "don_gia": dong["don_gia"],
+                            "thanh_tien": dong["thanh_tien"]
                         })
                     st.session_state.tab_hien_tai = "📥 Nhập hàng"; st.session_state.dong_sua = None; st.session_state.version_selectbox += 1; st.rerun()
                 if c7.button("🗑", key=f"xoa_{row['id']}"): dialog_xoa(row["id"])

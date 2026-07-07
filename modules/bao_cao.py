@@ -8,10 +8,11 @@ from utils.pdf_bao_cao import tao_pdf_bao_cao
 from database.db import (
     lay_ds_khach_hang,
     lay_bao_cao_nhap,
+    lay_ds_ten_go,
+    lay_ds_quy_cach,
     lay_ds_loai_go,
     lay_lich_su_ham
 )
-
 
 def show():
 
@@ -24,7 +25,7 @@ def show():
 
     with tab_nhap:
 
-        c1, c2, c3, c4 = st.columns([2, 2, 2, 1])
+        c1, c2, c3, c4, c5 = st.columns([2,2,2,2,1])
 
         with c1:
             tu_ngay = st.date_input("Từ ngày", value=date.today())
@@ -48,8 +49,51 @@ def show():
                 x["id"] for x in options
                 if x["ten"] == ten_kh
             )
-
+        
         with c4:
+
+            ds_ten = lay_ds_ten_go()
+
+            ds_ten = [{"ten": "Tất cả"}] + ds_ten
+
+            ten_go = st.selectbox(
+                "Tên gỗ",
+                [x["ten"] for x in ds_ten]
+            )
+
+            if ten_go == "Tất cả":
+                ten_go = None
+
+            loai_go_id = None
+
+            if ten_go is not None:
+
+                ds_qc = lay_ds_quy_cach(ten_go)
+
+                options_qc = [{"id": None, "ten": "Tất cả"}]
+
+                for x in ds_qc:
+
+                    options_qc.append({
+
+                        "id": x["id"],
+
+                        "ten": f'{int(x["day"])} × {int(x["rong"])} × {int(x["dai"])}'
+
+                    })
+
+                ten_qc = st.selectbox(
+                    "Quy cách",
+                    [x["ten"] for x in options_qc]
+                )
+
+                loai_go_id = next(
+                    x["id"]
+                    for x in options_qc
+                    if x["ten"] == ten_qc
+                )
+
+        with c5:
 
             st.write("")
             st.write("")
@@ -68,7 +112,9 @@ def show():
             ds = lay_bao_cao_nhap(
                 tu_ngay,
                 den_ngay,
-                khach_hang_id
+                khach_hang_id,
+                ten_go,
+                loai_go_id
             )
 
             if not ds:
@@ -81,7 +127,6 @@ def show():
                     "Số phiếu",
                     "Khách hàng",
                     "Tên gỗ",
-                    "Ký hiệu",
                     "Dày",
                     "Rộng",
                     "Dài",
@@ -161,7 +206,8 @@ def show():
                     df,
                     tu_ngay,
                     den_ngay,
-                    ten_kh
+                    ten_kh,
+                    ten_go if ten_go else "Tất cả"
                 )
 
                 # =============================
@@ -251,7 +297,7 @@ def show():
         # Hàng 2
         # =========================
 
-        c1, c2, c3, c4 = st.columns([3, 3, 2, 1])
+        c1, c2, c3, c4, c5 = st.columns([3,3,3,2,1])
 
         with c1:
 
@@ -274,24 +320,59 @@ def show():
 
         with c2:
 
-            ds_go = lay_ds_loai_go()
+            ds_ten = lay_ds_ten_go()
 
-            options = [{"id": None, "ten_go": "Tất cả"}]
-            options.extend(ds_go)
+            options = [{"ten": "Tất cả"}]
+            options.extend(ds_ten)
 
             ten_go = st.selectbox(
-                "Loại gỗ",
-                [x["ten_go"] for x in options],
-                key="ham_loai_go"
+                "Tên gỗ",
+                [x["ten"] for x in options],
+                key="ham_ten_go"
             )
 
-            loai_go_id = next(
-                x["id"]
-                for x in options
-                if x["ten_go"] == ten_go
-            )
+            if ten_go == "Tất cả":
+                ten_go = None
 
         with c3:
+
+            loai_go_id = None
+
+            if ten_go is None:
+
+                st.selectbox(
+                    "Quy cách",
+                    ["Tất cả"],
+                    disabled=True,
+                    key="ham_quy_cach"
+                )
+
+            else:
+
+                ds_qc = lay_ds_quy_cach(ten_go)
+
+                options = [{"id": None, "ten": "Tất cả"}]
+
+                for x in ds_qc:
+
+                    options.append({
+                        "id": x["id"],
+                        "ten": f'{int(x["day"])} × {int(x["rong"])} × {int(x["dai"])}'
+                    })
+
+                ten_qc = st.selectbox(
+                    "Quy cách",
+                    [x["ten"] for x in options],
+                    key=f"ham_qc_{ten_go}"
+                )
+
+                loai_go_id = next(
+                    x["id"]
+                    for x in options
+                    if x["ten"] == ten_qc
+                )
+
+        with c4:
 
             thao_tac = st.selectbox(
                 "Thao tác",
@@ -310,7 +391,7 @@ def show():
                 key="ham_thao_tac"
             )
 
-        with c4:
+        with c5:
 
             st.write("")
             st.write("")
@@ -329,6 +410,7 @@ def show():
                 tu_ngay,
                 den_ngay,
                 khach_hang_id,
+                ten_go,
                 loai_go_id,
                 thao_tac
             )

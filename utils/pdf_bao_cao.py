@@ -16,7 +16,13 @@ from reportlab.platypus import (
 from utils.pdf_font import dang_ky_font
 
 
-def tao_pdf_bao_cao(df, tu_ngay, den_ngay, ten_kh):
+def tao_pdf_bao_cao(
+    df,
+    tu_ngay,
+    den_ngay,
+    ten_kh,
+    ten_go="Tất cả"
+):
 
     dang_ky_font()
 
@@ -58,6 +64,13 @@ def tao_pdf_bao_cao(df, tu_ngay, den_ngay, ten_kh):
     elements.append(
         Paragraph(
             f"Khách hàng: {ten_kh}",
+            styles["Normal"]
+        )
+    )
+
+    elements.append(
+        Paragraph(
+            f"Tên gỗ: {ten_go}",
             styles["Normal"]
         )
     )
@@ -107,7 +120,7 @@ def tao_pdf_bao_cao(df, tu_ngay, den_ngay, ten_kh):
         ("FONTNAME", (0, 1), (-1, -2), "DejaVu"),
         ("FONTNAME", (0, -1), (-1, -1), "DejaVu-Bold"),
 
-        ("FONTSIZE", (0,0), (-1,-1), 7),
+        ("FONTSIZE", (0, 0), (-1, -1), 7),
 
         ("BOTTOMPADDING", (0, 0), (-1, 0), 6),
         ("TOPPADDING", (0, 0), (-1, 0), 6),
