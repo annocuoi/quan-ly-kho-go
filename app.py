@@ -10,6 +10,7 @@ from modules.kho import show as kho
 from modules.bao_cao import show as bao_cao
 from modules.ham_say import show as ham_say
 from modules.phan_loai_go import show as phan_loai_go
+from modules.cong_no import show as cong_no
 
 
 st.set_page_config(
@@ -58,6 +59,7 @@ with st.sidebar:
         "kho": "🏬 Kho",
         "say": "🔥 Hầm sấy",
         "phanloai": "📦 Phân loại",
+        "congno": "💰 Công nợ",
         "bc": "📊 Báo cáo"
     }
 
@@ -102,3 +104,6 @@ elif st.session_state.page == "say":
 
 elif st.session_state.page == "phanloai":
     phan_loai_go()
+
+elif st.session_state.page == "congno":
+    cong_no()

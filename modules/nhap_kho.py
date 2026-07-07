@@ -22,7 +22,10 @@ from database.db import (
     lay_phieu_nhap,
     sua_phieu_nhap,
     xoa_chi_tiet_phieu,
-    xoa_phieu_nhap
+    xoa_phieu_nhap,
+    them_cong_no,
+    sua_cong_no,
+    xoa_cong_no
 )
 
 if "xac_nhan_xoa" not in st.session_state:
@@ -35,10 +38,17 @@ def dialog_xoa(id):
     c1, c2 = st.columns(2)
 
     if c1.button("🗑 Xóa", width="stretch", type="primary"):
+
         xoa_chi_tiet_phieu(id)
+
+        xoa_cong_no(id)
+
         xoa_phieu_nhap(id)
+
         st.session_state.xac_nhan_xoa = None
+
         st.success("Đã xóa phiếu.")
+
         st.rerun()
 
     if c2.button("Hủy", width="stretch"):
@@ -589,22 +599,80 @@ def show():
                     if st.session_state.dong_sua == i: st.session_state.dong_sua = None; st.session_state.version_selectbox += 1
                     st.session_state.phieu_nhap_tam.pop(i); st.rerun()
 
-            st.divider(); st.metric("Tổng tiền", f"{tong_tien:,.0f}"); st.divider()
+            st.divider()
+            st.metric("Tổng tiền", f"{tong_tien:,.0f}")
+            st.divider()
+
             ten_nut_luu = "💾 Lưu phiếu mới" if st.session_state.id_phieu_dang_sua is None else "💾 Cập nhật phiếu cũ"
+
             if st.button(ten_nut_luu, type="primary", width="stretch"):
-                if not st.session_state.phieu_nhap_tam: st.warning("Chưa có dữ liệu.")
+
+                if not st.session_state.phieu_nhap_tam:
+                    st.warning("Chưa có dữ liệu.")
+
                 else:
-                    if st.session_state.id_phieu_dang_sua is None: id_phieu = them_phieu_nhap(so_phieu, str(ngay), khach_hang["id"], tong_tien)
+
+                    if st.session_state.id_phieu_dang_sua is None:
+
+                        id_phieu = them_phieu_nhap(
+                            so_phieu,
+                            str(ngay),
+                            khach_hang["id"],
+                            tong_tien
+                        )
+
+                        # ===== THÊM ĐOẠN NÀY =====
+                        them_cong_no(
+                            khach_hang_id=khach_hang["id"],
+                            ngay=str(ngay),
+                            loai="NHAP_HANG",
+                            so_tien=tong_tien,
+                            phieu_nhap_id=id_phieu,
+                            ghi_chu=f"Phiếu nhập {so_phieu}"
+                        )
+
                     else:
+
                         id_phieu = st.session_state.id_phieu_dang_sua
-                        sua_phieu_nhap(id_phieu, str(ngay), khach_hang["id"], tong_tien); xoa_chi_tiet_phieu(id_phieu)
+
+                        sua_phieu_nhap(
+                            id_phieu,
+                            str(ngay),
+                            khach_hang["id"],
+                            tong_tien
+                        )
+
+                        sua_cong_no(
+                            phieu_nhap_id=id_phieu,
+                            khach_hang_id=khach_hang["id"],
+                            ngay=str(ngay),
+                            so_tien=tong_tien,
+                            ghi_chu=f"Phiếu nhập {so_phieu}"
+                        )
+
+                        xoa_chi_tiet_phieu(id_phieu)
+
                     for dong in st.session_state.phieu_nhap_tam:
-                        them_chi_tiet_phieu_nhap(id_phieu, dong["loai_go_id"], dong["so_thanh"], dong["so_luong"], dong["don_gia"], dong["thanh_tien"])
-                    st.session_state.phieu_nhap_tam.clear(); st.session_state.dong_sua = None; st.session_state.id_phieu_dang_sua = None; st.session_state.version_selectbox += 1
-                    st.success("Đã ghi nhận thay đổi thành công!"); st.rerun()
+
+                        them_chi_tiet_phieu_nhap(
+                            id_phieu,
+                            dong["loai_go_id"],
+                            dong["so_thanh"],
+                            dong["so_luong"],
+                            dong["don_gia"],
+                            dong["thanh_tien"]
+                        )
+
+                    st.session_state.phieu_nhap_tam.clear()
+                    st.session_state.dong_sua = None
+                    st.session_state.id_phieu_dang_sua = None
+                    st.session_state.version_selectbox += 1
+
+                    st.success("Đã ghi nhận thay đổi thành công!")
+                    st.rerun()
 
     if lua_chon == "📋 Lịch sử phiếu":
-        st.header("📋 Lịch sử phiếu")
+        st.header("📋 Lịch sử phiếu nhập")
         ds = lay_ds_phieu_nhap()
         if len(ds) == 0: st.info("Chưa có phiếu.")
         else:

@@ -2112,3 +2112,189 @@ def lay_lich_su_ham(
     close_connection(conn)
 
     return data
+
+def them_cong_no(
+    khach_hang_id,
+    ngay,
+    loai,
+    so_tien,
+    phieu_nhap_id=None,
+    ghi_chu=""
+):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        INSERT INTO cong_no(
+            khach_hang_id,
+            ngay,
+            loai,
+            so_tien,
+            phieu_nhap_id,
+            ghi_chu
+        )
+        VALUES(%s,%s,%s,%s,%s,%s)
+    """, (
+        khach_hang_id,
+        ngay,
+        loai,
+        so_tien,
+        phieu_nhap_id,
+        ghi_chu
+    ))
+
+    conn.commit()
+
+    close_connection(conn)
+
+def sua_cong_no(
+    phieu_nhap_id,
+    khach_hang_id,
+    ngay,
+    so_tien,
+    ghi_chu=""
+):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        UPDATE cong_no
+
+        SET
+            khach_hang_id=%s,
+            ngay=%s,
+            so_tien=%s,
+            ghi_chu=%s
+
+        WHERE
+            phieu_nhap_id=%s
+            AND loai='NHAP_HANG'
+    """, (
+        khach_hang_id,
+        ngay,
+        so_tien,
+        ghi_chu,
+        phieu_nhap_id
+    ))
+
+    conn.commit()
+    close_connection(conn)
+
+def xoa_cong_no(phieu_nhap_id):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        DELETE
+        FROM cong_no
+        WHERE
+            phieu_nhap_id=%s
+            AND loai='NHAP_HANG'
+    """, (phieu_nhap_id,))
+
+    conn.commit()
+    close_connection(conn)
+
+def lay_cong_no():
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT
+
+            kh.id,
+            kh.ten,
+
+            COALESCE(
+                SUM(
+                    CASE
+                        WHEN cn.loai='NHAP_HANG'
+                        THEN cn.so_tien
+                        ELSE 0
+                    END
+                ),0
+            ) AS phat_sinh,
+
+            COALESCE(
+                SUM(
+                    CASE
+                        WHEN cn.loai='THANH_TOAN'
+                        THEN cn.so_tien
+                        ELSE 0
+                    END
+                ),0
+            ) AS da_tra
+
+        FROM khach_hang kh
+
+        LEFT JOIN cong_no cn
+            ON kh.id = cn.khach_hang_id
+
+        GROUP BY
+            kh.id,
+            kh.ten
+
+        ORDER BY
+            kh.ten
+    """)
+
+    data = cur.fetchall()
+
+    close_connection(conn)
+
+    return data
+
+def them_thanh_toan(
+    khach_hang_id,
+    ngay,
+    so_tien,
+    ghi_chu=""
+):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        INSERT INTO cong_no(
+            khach_hang_id,
+            ngay,
+            loai,
+            so_tien,
+            ghi_chu
+        )
+        VALUES(%s,%s,'THANH_TOAN',%s,%s)
+    """, (
+        khach_hang_id,
+        ngay,
+        so_tien,
+        ghi_chu
+    ))
+
+    conn.commit()
+    close_connection(conn)
+
+def lay_lich_su_cong_no(khach_hang_id):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT
+            ngay,
+            loai,
+            so_tien,
+            ghi_chu
+        FROM cong_no
+        WHERE khach_hang_id=%s
+        ORDER BY ngay,id
+    """, (khach_hang_id,))
+
+    data = cur.fetchall()
+
+    close_connection(conn)
+
+    return data
