@@ -14,7 +14,8 @@ from database.db import (
     luu_phan_loai,
     lay_kho_da_phan_loai,
     lay_ds_ten_go,
-    lay_ds_quy_cach
+    lay_ds_quy_cach,
+    lay_ds_quy_cach_da_phan_loai  
 )
 
 def chon_lo():
@@ -52,7 +53,13 @@ def hien_thi_thong_tin_lo(lo):
     st.write(f"**Phiếu:** {lo['so_phieu']}")
     st.write(f"**Khách:** {lo['khach_hang']}")
     st.write(f"**Loại gỗ:** {lo['ten']}")
-    st.write(f"**Ký hiệu:** {lo['ma_go']}")
+    if lo["kieu_tinh"] == "M3":
+        st.write(
+            f"**Loại gỗ:** {lo['ten']} "
+            f"({int(lo['day'])} × {int(lo['rong'])} × {int(lo['dai'])})"
+        )
+    else:
+        st.write(f"**Loại gỗ:** {lo['ten']}")
 
 
     if lo["kg"] is not None:
@@ -435,7 +442,7 @@ def show():
 
     elif st.session_state.tab_kho == "chua_phan_loai":
         st.subheader("🟡 Kho khô chưa phân loại")
-        c1, c2 = st.columns(2)
+        c1, c2, c3 = st.columns(3)
 
         with c1:
             ds_kh = lay_ds_khach_hang()
@@ -445,22 +452,68 @@ def show():
             khach_hang_id = next(x["id"] for x in options if x["ten"] == ten_kh)
 
         with c2:
-            ds_go = lay_ds_loai_go()
 
-            options_go = [{"id": None, "ten": "Tất cả"}]
-            options_go.extend(ds_go)
+            ds_ten = lay_ds_ten_go()
+
+            ds_ten = [{"ten": "Tất cả"}] + ds_ten
 
             ten_go = st.selectbox(
-                "Loại gỗ",
-                [x["ten"] for x in options_go],
-                key="go_kho"
+                "Tên gỗ",
+                [x["ten"] for x in ds_ten],
+                key="ten_go_kho"
             )
 
-            loai_go_id = next(
-                x["id"]
-                for x in options_go
-                if x["ten"] == ten_go
-            )
+            if ten_go == "Tất cả":
+                ten_go = None
+
+        with c3:
+
+            loai_go_id = None
+
+            if ten_go is None:
+
+                st.selectbox(
+                    "Quy cách",
+                    ["Tất cả"],
+                    disabled=True,
+                    key="qc_kho"
+                )
+
+            else:
+
+                ds_qc = lay_ds_quy_cach(ten_go)
+
+                if len(ds_qc) == 0:
+
+                    st.selectbox(
+                        "Quy cách",
+                        ["Không có"],
+                        disabled=True,
+                        key="qc_kho"
+                    )
+
+                else:
+
+                    options_qc = [{"id": None, "ten": "Tất cả"}]
+
+                    for x in ds_qc:
+
+                        options_qc.append({
+                            "id": x["id"],
+                            "ten": f"{int(x['day'])} × {int(x['rong'])} × {int(x['dai'])}"
+                        })
+
+                    ten_qc = st.selectbox(
+                        "Quy cách",
+                        [x["ten"] for x in options_qc],
+                        key="qc_kho"
+                    )
+
+                    loai_go_id = next(
+                        x["id"]
+                        for x in options_qc
+                        if x["ten"] == ten_qc
+                    )
 
         ds = lay_kho_kho(khach_hang_id, loai_go_id)
         if len(ds) == 0:
@@ -474,6 +527,7 @@ def show():
             "Số phiếu",
             "Khách hàng",
             "Tên gỗ",
+            "Kiểu tính",
             "Dày",
             "Rộng",
             "Dài",
@@ -561,45 +615,89 @@ def show():
             )
 
         with c2:
-            ds_go = lay_ds_loai_go()
 
-            options_go = [{"id": None, "ten": "Tất cả"}]
-            options_go.extend(ds_go)
+            ds_ten = lay_ds_ten_go()
+
+            ds_ten = [{"ten": "Tất cả"}] + ds_ten
 
             ten_go = st.selectbox(
-                "Loại gỗ",
-                [x["ten"] for x in options_go],
-                key="go_da_phan_loai"
+                "Tên gỗ",
+                [x["ten"] for x in ds_ten],
+                key="ten_go_da_phan_loai"
             )
 
-            loai_go_id = next(
-                x["id"]
-                for x in options_go
-                if x["ten"] == ten_go
-            )
+            if ten_go == "Tất cả":
+                ten_go = None
 
         with c3:
-            ds_pl = lay_ds_phan_loai()
 
-            options_pl = [{"id": None, "ten": "Tất cả"}]
-            options_pl.extend(ds_pl)
+            loai_go_id = None
+            day = None
+            rong = None
+            dai = None
+            if ten_go is None:
 
-            ten_pl = st.selectbox(
-                "Phân loại",
-                [x["ten"] for x in options_pl],
-                key="phan_loai_da_phan_loai"
-            )
+                st.selectbox(
+                    "Quy cách",
+                    ["Tất cả"],
+                    disabled=True,
+                    key="qc_da_phan_loai"
+                )
 
-            phan_loai_go_id = next(
-                x["id"]
-                for x in options_pl
-                if x["ten"] == ten_pl
-            )
+            else:
+
+                ds_qc = lay_ds_quy_cach_da_phan_loai(ten_go)
+
+                if len(ds_qc) == 0:
+
+                    st.selectbox(
+                        "Quy cách",
+                        ["Không có"],
+                        disabled=True,
+                        key="qc_da_phan_loai"
+                    )
+
+                else:
+
+                    options_qc = [{"id": None, "ten": "Tất cả"}]
+
+                    for x in ds_qc:
+
+                        options_qc.append({
+                            "day": x["day"],
+                            "rong": x["rong"],
+                            "dai": x["dai"],
+                            "ten": f"{x['day']:g} × {x['rong']:g} × {x['dai']:g}"
+                        })
+
+                    ten_qc = st.selectbox(
+                        "Quy cách",
+                        [x["ten"] for x in options_qc],
+                        key="qc_da_phan_loai"
+                    )
+
+                    day = None
+                    rong = None
+                    dai = None
+
+                    if ten_qc != "Tất cả":
+
+                        qc = next(
+                            x
+                            for x in options_qc
+                            if x["ten"] == ten_qc
+                        )
+
+                        day = qc["day"]
+                        rong = qc["rong"]
+                        dai = qc["dai"]
 
         ds = lay_kho_da_phan_loai(
             khach_hang_id,
-            loai_go_id,
-            phan_loai_go_id
+            ten_go,
+            day,
+            rong,
+            dai
         )
 
         if len(ds) == 0:
@@ -608,92 +706,61 @@ def show():
 
         df = pd.DataFrame(ds)
 
-        if phan_loai_go_id is None:
+        df = df.rename(columns={
+            "ngay": "Ngày",
+            "so_phieu": "Phiếu",
+            "khach_hang": "Khách",
+            "ten": "Loại gỗ",
+            "phan_loai": "Phân loại",
+            "day": "Dày",
+            "rong": "Rộng",
+            "dai": "Dài",
+            "kg": "Kg",
+            "thanh": "Thanh",
+            "m3": "M³"
+        })
 
-            df = df.rename(columns={
-                "ngay": "Ngày",
-                "so_phieu": "Phiếu",
-                "khach_hang": "Khách",
-                "ten": "Loại gỗ",
-                "phan_loai": "Phân loại",
-                "day": "Dày",
-                "rong": "Rộng",
-                "dai": "Dài",
-                "kg": "Kg",
-                "thanh": "Thanh",
-                "m3": "M³"
-            })
-
-            df = df[
-                [
-                    "Ngày",
-                    "Phiếu",
-                    "Khách",
-                    "Loại gỗ",
-                    "Phân loại",
-                    "Dày",
-                    "Rộng",
-                    "Dài",
-                    "Kg",
-                    "Thanh",
-                    "M³"
-                ]
+        df = df[
+            [
+                "Ngày",
+                "Phiếu",
+                "Khách",
+                "Loại gỗ",
+                "Phân loại",
+                "Dày",
+                "Rộng",
+                "Dài",
+                "Kg",
+                "Thanh",
+                "M³"
             ]
-
-        else:
-
-            df = df.rename(columns={
-                "ngay": "Ngày",
-                "so_phieu": "Phiếu",
-                "khach_hang": "Khách",
-                "ten": "Loại gỗ",
-                "day": "Dày",
-                "rong": "Rộng",
-                "dai": "Dài",
-                "kg": "Kg",
-                "thanh": "Thanh",
-                "m3": "M³"
-            })
-
-            df = df[
-                [
-                    "Ngày",
-                    "Phiếu",
-                    "Khách",
-                    "Loại gỗ",
-                    "Dày",
-                    "Rộng",
-                    "Dài",
-                    "Kg",
-                    "Thanh",
-                    "M³"
-                ]
-            ]
+        ]
 
         df.insert(0, "STT", range(1, len(df) + 1))
 
         df["Ngày"] = pd.to_datetime(df["Ngày"]).dt.strftime("%d/%m/%Y")
 
+
+        def format_kich_thuoc(x):
+
+            if pd.isna(x):
+                return ""
+
+            if float(x).is_integer():
+                return int(x)
+
+            return float(x)
+
+
         for cot in ["Dày", "Rộng", "Dài"]:
-            if cot in df.columns:
-                df[cot] = df[cot].apply(
-                    lambda x: "" if pd.isna(x) else int(x)
-                )
 
-        tong_kg = pd.to_numeric(
-            df["Kg"],
-            errors="coerce"
-        ).fillna(0).sum()
+            df[cot] = df[cot].apply(format_kich_thuoc)
 
-        tong_thanh = pd.to_numeric(
-            df["Thanh"],
-            errors="coerce"
-        ).fillna(0).sum()
 
-        tong_m3 = pd.to_numeric(
-            df["M³"],
-            errors="coerce"
-        ).fillna(0).sum()
+        tong_kg = pd.to_numeric(df["Kg"], errors="coerce").fillna(0).sum()
+        tong_thanh = pd.to_numeric(df["Thanh"], errors="coerce").fillna(0).sum()
+        tong_m3 = pd.to_numeric(df["M³"], errors="coerce").fillna(0).sum()
+
 
         df["Kg"] = df["Kg"].apply(
             lambda x: "" if pd.isna(x) else f"{float(x):,.0f}"
@@ -707,12 +774,14 @@ def show():
             lambda x: "" if pd.isna(x) else f"{float(x):.3f}"
         )
 
-        tong = {
+
+        df.loc[len(df)] = {
             "STT": "",
             "Ngày": "",
             "Phiếu": "",
             "Khách": "",
             "Loại gỗ": "TỔNG CỘNG",
+            "Phân loại": "",
             "Dày": "",
             "Rộng": "",
             "Dài": "",
@@ -721,16 +790,11 @@ def show():
             "M³": f"{tong_m3:.3f}" if tong_m3 else ""
         }
 
-        if phan_loai_go_id is None:
-            tong["Phân loại"] = ""
-
-        df.loc[len(df)] = tong
-
         pdf = tao_pdf_kho_da_phan_loai(
             df,
             ten_kh,
-            ten_go,
-            ten_pl
+            ten_go if ten_go else "Tất cả",
+            ten_qc if ten_go else "Tất cả"
         )
 
         buffer = io.BytesIO()
