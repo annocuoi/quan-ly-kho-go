@@ -15,7 +15,8 @@ from database.db import (
     lay_kho_da_phan_loai,
     lay_ds_ten_go,
     lay_ds_quy_cach,
-    lay_ds_quy_cach_da_phan_loai  
+    lay_ds_quy_cach_da_phan_loai,
+    lay_chi_tiet_nhap_hang_kho  
 )
 
 def chon_lo():
@@ -597,7 +598,7 @@ def show():
         ds_quy_cach = []
         chon_qc = []
 
-        c1, c2, c3 = st.columns(3)
+        c1, c2, c3, c4 = st.columns(4)
 
         with c1:
             ds_kh = lay_ds_khach_hang()
@@ -618,6 +619,18 @@ def show():
 
         with c2:
 
+            ds_phan_loai = lay_ds_phan_loai()
+
+            lua_chon_pl = [{"id": None, "ten": "Tất cả"}] + ds_phan_loai
+
+            phan_loai = st.selectbox(
+                "Phân loại",
+                lua_chon_pl,
+                format_func=lambda x: x["ten"]
+            )
+
+        with c3:
+
             ds_ten = lay_ds_ten_go()
 
             ds_ten = [{"ten": "Tất cả"}] + ds_ten
@@ -631,7 +644,7 @@ def show():
             if ten_go == "Tất cả":
                 ten_go = None
 
-        with c3:
+        with c4:
 
             loai_go_id = None
             day = None
@@ -699,7 +712,8 @@ def show():
         ds = lay_kho_da_phan_loai(
             khach_hang_id,
             ten_go,
-            ds_quy_cach
+            ds_quy_cach,
+            phan_loai["id"]
         )
 
         if len(ds) == 0:
