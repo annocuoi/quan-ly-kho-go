@@ -529,7 +529,8 @@ def them_phieu_nhap(
     so_phieu,
     ngay,
     khach_hang_id,
-    tong_tien
+    tong_tien,
+    loai_nhap="TUOI"
 ):
 
     conn = get_connection()
@@ -541,18 +542,20 @@ def them_phieu_nhap(
             so_phieu,
             ngay,
             khach_hang_id,
-            tong_tien
+            tong_tien,
+            loai_nhap
 
         )
 
-        VALUES(%s,%s,%s,%s)
+        VALUES(%s,%s,%s,%s,%s)
 
         RETURNING id
     """, (
         so_phieu,
         ngay,
         khach_hang_id,
-        tong_tien
+        tong_tien,
+        loai_nhap
     ))
 
     id_phieu = cur.fetchone()["id"]
