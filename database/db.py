@@ -1923,9 +1923,7 @@ def luu_phan_loai(
 def lay_kho_da_phan_loai(
     khach_hang_id=None,
     ten_go=None,
-    day=None,
-    rong=None,
-    dai=None
+    ds_quy_cach=None
 ):
 
     conn = get_connection()
@@ -2005,20 +2003,27 @@ def lay_kho_da_phan_loai(
         sql += " AND lg.ten=%s"
         params.append(ten_go)
 
-    if day is not None:
+    if ds_quy_cach:
 
-        sql += " AND kp.day=%s"
-        params.append(day)
+        sql += " AND ("
 
-    if rong is not None:
+        dieu_kien = []
 
-        sql += " AND kp.rong=%s"
-        params.append(rong)
+        for qc in ds_quy_cach:
 
-    if dai is not None:
+            dieu_kien.append(
+                "(kp.day=%s AND kp.rong=%s AND kp.dai=%s)"
+            )
 
-        sql += " AND kp.dai=%s"
-        params.append(dai)
+            params.extend([
+                qc["day"],
+                qc["rong"],
+                qc["dai"]
+            ])
+
+        sql += " OR ".join(dieu_kien)
+
+        sql += ")"
 
     cur.execute(sql, tuple(params))
 

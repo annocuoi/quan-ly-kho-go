@@ -594,6 +594,8 @@ def show():
 
     elif st.session_state.tab_kho == "da_phan_loai":
         st.subheader("🟤 Kho khô đã phân loại")
+        ds_quy_cach = []
+        chon_qc = []
 
         c1, c2, c3 = st.columns(3)
 
@@ -670,34 +672,34 @@ def show():
                             "ten": f"{x['day']:g} × {x['rong']:g} × {x['dai']:g}"
                         })
 
-                    ten_qc = st.selectbox(
-                        "Quy cách",
-                        [x["ten"] for x in options_qc],
-                        key="qc_da_phan_loai"
-                    )
+                    with st.expander("📏 Chọn quy cách", expanded=False):
 
-                    day = None
-                    rong = None
-                    dai = None
+                        tat_ca = st.checkbox("✔ Chọn tất cả", key="tat_ca_qc")
 
-                    if ten_qc != "Tất cả":
+                        chon_qc = []
 
-                        qc = next(
-                            x
-                            for x in options_qc
-                            if x["ten"] == ten_qc
-                        )
+                        for qc in options_qc:
 
-                        day = qc["day"]
-                        rong = qc["rong"]
-                        dai = qc["dai"]
+                            if qc["ten"] == "Tất cả":
+                                continue
+
+                            if st.checkbox(
+                                qc["ten"],
+                                value=tat_ca,
+                                key=f"qc_{qc['ten']}"
+                            ):
+                                chon_qc.append(qc["ten"])
+
+                    ds_quy_cach = [
+                        x
+                        for x in options_qc
+                        if x["ten"] in chon_qc
+                    ]
 
         ds = lay_kho_da_phan_loai(
             khach_hang_id,
             ten_go,
-            day,
-            rong,
-            dai
+            ds_quy_cach
         )
 
         if len(ds) == 0:
@@ -790,11 +792,13 @@ def show():
             "M³": f"{tong_m3:.3f}" if tong_m3 else ""
         }
 
+        ten_qc = ", ".join(chon_qc) if chon_qc else "Tất cả"
+
         pdf = tao_pdf_kho_da_phan_loai(
             df,
             ten_kh,
             ten_go if ten_go else "Tất cả",
-            ten_qc if ten_go else "Tất cả"
+            ten_qc
         )
 
         buffer = io.BytesIO()
