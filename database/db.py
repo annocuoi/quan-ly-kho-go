@@ -104,6 +104,8 @@ def tao_database():
 
             tong_tien DOUBLE PRECISION NOT NULL DEFAULT 0,
 
+            loai_nhap VARCHAR(20) NOT NULL DEFAULT 'TUOI',
+
             FOREIGN KEY(khach_hang_id)
             REFERENCES khach_hang(id)
 

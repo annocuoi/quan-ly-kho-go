@@ -508,12 +508,19 @@ def show():
     lua_chon = st.session_state.tab_hien_tai
     if lua_chon == "📥 Nhập hàng":
 
-        tab1, tab2 = st.tabs([
-            "🌲 Nhập hàng tươi",
-            "🪵 Nhập hàng khô"
-        ])
+        index_radio_mac_dinh = 1 if st.session_state.tab_nhap_hang == "🪵 Nhập hàng khô" else 0
 
-        with tab1:
+        lua_chon_nhap = st.radio(
+            "",
+            ["🌲 Nhập hàng tươi", "🪵 Nhập hàng khô"],
+            horizontal=True,
+            index=index_radio_mac_dinh,
+            key="loai_hang_radio"
+        )
+        # Đồng bộ ngược lại biến điều hướng chính
+        st.session_state.tab_nhap_hang = lua_chon_nhap
+
+        if lua_chon_nhap == "🌲 Nhập hàng tươi":
             if st.session_state.id_phieu_dang_sua is None:
 
                 so_phieu = str(lay_so_phieu_moi())
@@ -523,11 +530,11 @@ def show():
                 st.info(f"✏️ Đang sửa phiếu số: {st.session_state.so_phieu_hien_tai}")
 
                 so_phieu = st.session_state.so_phieu_hien_tai
-                if st.button("❌ Thoát chế độ sửa phiếu (Nhập mới)"):
+                if st.button("❌ Thoát chế độ sửa phiếu (Nhập mới)", key="thoat_sua_tuoi"):
                     st.session_state.id_phieu_dang_sua = None
-                    st.session_state.phieu_nhap_tam.clear()
+                    st.session_state.phieu_nhap_tam = []
                     st.session_state.dong_sua = None
-                    st.session_state.tab_hien_tai = "📥 Nhập hàng"
+                    st.session_state.version_selectbox += 1
                     st.rerun()
 
             c1, c2, c3 = st.columns(3)
@@ -564,6 +571,30 @@ def show():
 
             index_mac_dinh = 0
             df_sua = None
+
+            if st.session_state.dong_sua is not None:
+
+                df_sua = st.session_state.phieu_nhap_tam[
+                    st.session_state.dong_sua
+                ]
+
+                if df_sua["kieu_tinh"] == "M3":
+
+                    ten_go_sua = (
+                        f'{df_sua["ten"]} - '
+                        f'{int(df_sua["day"])}×'
+                        f'{int(df_sua["rong"])}×'
+                        f'{int(df_sua["dai"])}'
+                    )
+
+                else:
+
+                    ten_go_sua = f'{df_sua["ten"]} (KG)'
+
+                if ten_go_sua in ds_ten_go:
+
+                    index_mac_dinh = ds_ten_go.index(ten_go_sua)
+            df_sua = None
             if st.session_state.dong_sua is not None:
 
                 df_sua = st.session_state.phieu_nhap_tam[st.session_state.dong_sua]
@@ -584,8 +615,12 @@ def show():
                 if ten_go_sua in ds_ten_go:
                     index_mac_dinh = ds_ten_go.index(ten_go_sua)
 
-            ten_go = st.selectbox("Loại gỗ", ds_ten_go, index=index_mac_dinh, key="go_select_tuoi")
-
+            ten_go = st.selectbox(
+                "Loại gỗ",
+                ds_ten_go,
+                index=index_mac_dinh,
+                key=f"go_select_tuoi_{st.session_state.version_selectbox}"
+            )
             if ten_go == "-- Chọn loại gỗ --":
                 st.info("Chọn loại gỗ để thêm vào phiếu.")
             else:
@@ -629,7 +664,8 @@ def show():
                             "thanh_tien": so_luong * don_gia
                         })
                         
-                        st.rerun() 
+                        st.session_state.version_selectbox += 1
+                        st.rerun()
 
                 else:
 
@@ -667,11 +703,7 @@ def show():
 
                             st.session_state.dong_sua = None
                             st.session_state.version_selectbox += 1
-
-                            st.success("Đã cập nhật dòng")
-
                             st.rerun()
-
                     with col_huy:
 
                         if st.button(
@@ -687,154 +719,154 @@ def show():
 
                 st.divider()
 
-                tong_tien = 0
-                if not st.session_state.phieu_nhap_tam:
-                    st.info("Chưa có gỗ trong danh sách.")
-                else:
+            tong_tien = 0
+            if not st.session_state.phieu_nhap_tam:
+                st.info("Chưa có gỗ trong danh sách.")
+            else:
+                c1, c2, c3, c4, c5, c6, c7, c8 = st.columns(
+                    [4, 4, 2, 2, 2, 3, 1, 1]
+                )
+
+                c1.write("**Loại gỗ**")
+                c2.write("**Quy cách**")
+                c3.write("**Thanh**")
+                c4.write("**SL**")
+                c5.write("**Đơn giá**")
+                c6.write("**Thành tiền**")
+                c7.write("✏️")
+                c8.write("🗑")
+
+                st.divider()
+
+                for i, dong in enumerate(st.session_state.phieu_nhap_tam):
+
                     c1, c2, c3, c4, c5, c6, c7, c8 = st.columns(
                         [4, 4, 2, 2, 2, 3, 1, 1]
                     )
 
-                    c1.write("**Loại gỗ**")
-                    c2.write("**Quy cách**")
-                    c3.write("**Thanh**")
-                    c4.write("**SL**")
-                    c5.write("**Đơn giá**")
-                    c6.write("**Thành tiền**")
-                    c7.write("✏️")
-                    c8.write("🗑")
+                    prefix = "👉 " if st.session_state.dong_sua == i else ""
 
-                    st.divider()
+                    if dong["kieu_tinh"] == "M3":
+                        ten_go = dong["ten"]
 
-                    for i, dong in enumerate(st.session_state.phieu_nhap_tam):
-
-                        c1, c2, c3, c4, c5, c6, c7, c8 = st.columns(
-                            [4, 4, 2, 2, 2, 3, 1, 1]
+                        quy_cach = (
+                            f'{int(dong["day"])} × '
+                            f'{int(dong["rong"])} × '
+                            f'{int(dong["dai"])}'
                         )
 
-                        prefix = "👉 " if st.session_state.dong_sua == i else ""
+                        thanh = str(dong["so_thanh"])
+                        so_luong = f'{dong["so_luong"]:.4f} m³'
 
-                        if dong["kieu_tinh"] == "M3":
-                            ten_go = dong["ten"]
+                    else:
+                        ten_go = dong["ten"]
 
-                            quy_cach = (
-                                f'{int(dong["day"])} × '
-                                f'{int(dong["rong"])} × '
-                                f'{int(dong["dai"])}'
+                        quy_cach = "KG"
+
+                        thanh = "-"
+
+                        so_luong = f'{dong["so_luong"]:,.0f} Kg'
+
+                    c1.write(prefix + ten_go)
+                    c2.write(quy_cach)
+                    c3.write(thanh)
+                    c4.write(so_luong)
+                    c5.write(f'{dong["don_gia"]:,.0f}')
+                    c6.write(f'{dong["thanh_tien"]:,.0f} đ')
+
+                    tong_tien += dong["thanh_tien"]
+
+                    if c7.button("✏️", key=f"sua_dong_{i}"):
+                        st.session_state.dong_sua = i
+                        st.session_state.version_selectbox += 1
+                        st.rerun()
+
+                    if c8.button("🗑", key=f"xoa_{i}"):
+
+                        if st.session_state.dong_sua == i:
+                            st.session_state.dong_sua = None
+                            st.session_state.version_selectbox += 1
+
+                        st.session_state.phieu_nhap_tam.pop(i)
+                        st.rerun()
+
+                st.divider()
+                st.metric("Tổng tiền", f"{tong_tien:,.0f}")
+                st.divider()
+                ten_nut_luu = "💾 Lưu phiếu mới" if st.session_state.id_phieu_dang_sua is None else "💾 Cập nhật phiếu cũ"
+
+                if st.button(
+                    ten_nut_luu,
+                    key="luu_phieu_tuoi",
+                    type="primary",
+                    width="stretch"
+                ):
+
+                    if not st.session_state.phieu_nhap_tam:
+                        st.warning("Chưa có dữ liệu.")
+
+                    else:
+
+                        if st.session_state.id_phieu_dang_sua is None:
+
+                            id_phieu = them_phieu_nhap(
+                                so_phieu,
+                                str(ngay),
+                                khach_hang["id"],
+                                tong_tien
                             )
 
-                            thanh = str(dong["so_thanh"])
-                            so_luong = f'{dong["so_luong"]:.4f} m³'
-
-                        else:
-                            ten_go = dong["ten"]
-
-                            quy_cach = "KG"
-
-                            thanh = "-"
-
-                            so_luong = f'{dong["so_luong"]:,.0f} Kg'
-
-                        c1.write(prefix + ten_go)
-                        c2.write(quy_cach)
-                        c3.write(thanh)
-                        c4.write(so_luong)
-                        c5.write(f'{dong["don_gia"]:,.0f}')
-                        c6.write(f'{dong["thanh_tien"]:,.0f} đ')
-
-                        tong_tien += dong["thanh_tien"]
-
-                        if c7.button("✏️", key=f"sua_dong_{i}"):
-                            st.session_state.dong_sua = i
-                            st.session_state.version_selectbox += 1
-                            st.rerun()
-
-                        if c8.button("🗑", key=f"xoa_{i}"):
-
-                            if st.session_state.dong_sua == i:
-                                st.session_state.dong_sua = None
-                                st.session_state.version_selectbox += 1
-
-                            st.session_state.phieu_nhap_tam.pop(i)
-                            st.rerun()
-
-                    st.divider()
-                    st.metric("Tổng tiền", f"{tong_tien:,.0f}")
-                    st.divider()
-                    ten_nut_luu = "💾 Lưu phiếu mới" if st.session_state.id_phieu_dang_sua is None else "💾 Cập nhật phiếu cũ"
-
-                    if st.button(
-                        ten_nut_luu,
-                        key="luu_phieu_tuoi",
-                        type="primary",
-                        width="stretch"
-                    ):
-
-                        if not st.session_state.phieu_nhap_tam:
-                            st.warning("Chưa có dữ liệu.")
+                            # ===== THÊM ĐOẠN NÀY =====
+                            them_cong_no(
+                                khach_hang_id=khach_hang["id"],
+                                ngay=str(ngay),
+                                loai="NHAP_HANG",
+                                so_tien=tong_tien,
+                                phieu_nhap_id=id_phieu,
+                                ghi_chu=f"Phiếu nhập {so_phieu}"
+                            )
 
                         else:
 
-                            if st.session_state.id_phieu_dang_sua is None:
+                            id_phieu = st.session_state.id_phieu_dang_sua
 
-                                id_phieu = them_phieu_nhap(
-                                    so_phieu,
-                                    str(ngay),
-                                    khach_hang["id"],
-                                    tong_tien
-                                )
+                            sua_phieu_nhap(
+                                id_phieu,
+                                str(ngay),
+                                khach_hang["id"],
+                                tong_tien
+                            )
 
-                                # ===== THÊM ĐOẠN NÀY =====
-                                them_cong_no(
-                                    khach_hang_id=khach_hang["id"],
-                                    ngay=str(ngay),
-                                    loai="NHAP_HANG",
-                                    so_tien=tong_tien,
-                                    phieu_nhap_id=id_phieu,
-                                    ghi_chu=f"Phiếu nhập {so_phieu}"
-                                )
+                            sua_cong_no(
+                                phieu_nhap_id=id_phieu,
+                                khach_hang_id=khach_hang["id"],
+                                ngay=str(ngay),
+                                so_tien=tong_tien,
+                                ghi_chu=f"Phiếu nhập {so_phieu}"
+                            )
 
-                            else:
+                            xoa_chi_tiet_phieu(id_phieu)
 
-                                id_phieu = st.session_state.id_phieu_dang_sua
+                        for dong in st.session_state.phieu_nhap_tam:
 
-                                sua_phieu_nhap(
-                                    id_phieu,
-                                    str(ngay),
-                                    khach_hang["id"],
-                                    tong_tien
-                                )
+                            them_chi_tiet_phieu_nhap(
+                                id_phieu,
+                                dong["loai_go_id"],
+                                dong["so_thanh"],
+                                dong["so_luong"],
+                                dong["don_gia"],
+                                dong["thanh_tien"]
+                            )
 
-                                sua_cong_no(
-                                    phieu_nhap_id=id_phieu,
-                                    khach_hang_id=khach_hang["id"],
-                                    ngay=str(ngay),
-                                    so_tien=tong_tien,
-                                    ghi_chu=f"Phiếu nhập {so_phieu}"
-                                )
+                        st.session_state.phieu_nhap_tam.clear()
+                        st.session_state.dong_sua = None
+                        st.session_state.id_phieu_dang_sua = None
+                        st.session_state.version_selectbox += 1
 
-                                xoa_chi_tiet_phieu(id_phieu)
+                        st.success("Đã ghi nhận thay đổi thành công!")
+                        st.rerun()
 
-                            for dong in st.session_state.phieu_nhap_tam:
-
-                                them_chi_tiet_phieu_nhap(
-                                    id_phieu,
-                                    dong["loai_go_id"],
-                                    dong["so_thanh"],
-                                    dong["so_luong"],
-                                    dong["don_gia"],
-                                    dong["thanh_tien"]
-                                )
-
-                            st.session_state.phieu_nhap_tam.clear()
-                            st.session_state.dong_sua = None
-                            st.session_state.id_phieu_dang_sua = None
-                            st.session_state.version_selectbox += 1
-
-                            st.success("Đã ghi nhận thay đổi thành công!")
-                            st.rerun()
-
-        with tab2:
+        if lua_chon_nhap == "🪵 Nhập hàng khô":
             if st.session_state.id_phieu_dang_sua is None:
 
                 so_phieu = str(lay_so_phieu_moi())
@@ -844,7 +876,10 @@ def show():
                 st.info(f"✏️ Đang sửa phiếu số: {st.session_state.so_phieu_hien_tai}")
 
                 so_phieu = st.session_state.so_phieu_hien_tai
-                if st.button("❌ Thoát chế độ sửa phiếu (Nhập mới)"):
+                if st.button(
+                    "❌ Thoát chế độ sửa phiếu (Nhập mới)",
+                    key="thoat_sua_kho"
+                ):
                     st.session_state.id_phieu_dang_sua = None
                     st.session_state.phieu_nhap_kho_tam.clear()
                     st.session_state.dong_sua_kho = None
@@ -1254,7 +1289,8 @@ def show():
                                 so_phieu,
                                 str(ngay),
                                 khach_hang["id"],
-                                tong_tien
+                                tong_tien,
+                                "KHO"
                             )
 
                             # ===== THÊM ĐOẠN NÀY =====
@@ -1317,35 +1353,139 @@ def show():
                         st.success("Đã ghi nhận thay đổi thành công!")
                         st.rerun()
 
-
     if lua_chon == "📋 Lịch sử phiếu":
+
         st.header("📋 Lịch sử phiếu nhập")
-        ds = lay_ds_phieu_nhap()
-        if len(ds) == 0: st.info("Chưa có phiếu.")
+
+        loc_loai = st.radio(
+            "Loại phiếu",
+            ["Tất cả", "🌲 Hàng tươi", "🪵 Hàng khô"],
+            horizontal=True,
+        )
+
+        if loc_loai == "🌲 Hàng tươi":
+            ds = lay_ds_phieu_nhap("TUOI")
+        elif loc_loai == "🪵 Hàng khô":
+            ds = lay_ds_phieu_nhap("KHO")
         else:
-            c1, c2, c3, c4, c5, c6, c7 = st.columns([1, 2, 4, 2, 1, 1, 1])
-            c1.write("Số"); c2.write("Ngày"); c3.write("Khách hàng"); c4.write("Tổng tiền"); c5.write("👁"); c6.write("✏️"); c7.write("🗑")
+            ds = lay_ds_phieu_nhap()
+
+        if len(ds) == 0:
+            st.info("Chưa có phiếu.")
+
+        else:
+
+            c1, c2, c3, c4, c5, c6, c7, c8 = st.columns([1, 2, 2, 4, 2, 1, 1, 1])
+
+            c1.write("Số")
+            c2.write("Ngày")
+            c3.write("Loại")
+            c4.write("Khách hàng")
+            c5.write("Tổng tiền")
+            c6.write("👁")
+            c7.write("✏️")
+            c8.write("🗑")
+
             st.divider()
+
             for row in ds:
-                c1, c2, c3, c4, c5, c6, c7 = st.columns([1, 2, 4, 2, 1, 1, 1])
-                c1.write(row["so_phieu"]); c2.write(str(row["ngay"])); c3.write(row["khach_hang"]); c4.write(f'{row["tong_tien"]:,.0f}')
-                if c5.button("👁", key=f"xem_{row['id']}"): st.session_state.xem_phieu = row["id"]; st.rerun()
-                if c6.button("✏️", key=f"sua_{row['id']}"):
-                    st.session_state.id_phieu_dang_sua = row["id"]; st.session_state.so_phieu_hien_tai = row["so_phieu"]; st.session_state.kh_mac_dinh = row["khach_hang"]
-                    ct_go_cu = lay_chi_tiet_nhap_hang_kho(row["id"])
-                    st.session_state.phieu_nhap_kho_tam = []
-                    for dong in ct_go_cu:
-                        st.session_state.phieu_nhap_kho_tam.append({
-                            "loai_go_id": dong["loai_go_id"],
-                            "ten": dong["ten"],
-                            "day": dong["day"],
-                            "rong": dong["rong"],
-                            "dai": dong["dai"],
-                            "kieu_tinh": dong["kieu_tinh"],
-                            "so_thanh": dong["so_thanh"],
-                            "so_luong": dong["so_luong"],
-                            "don_gia": dong["don_gia"],
-                            "thanh_tien": dong["thanh_tien"]
-                        })
-                    st.session_state.tab_hien_tai = "📥 Nhập hàng"; st.session_state.dong_sua = None; st.session_state.version_selectbox += 1; st.rerun()
-                if c7.button("🗑", key=f"xoa_{row['id']}"): dialog_xoa(row["id"])
+
+                c1, c2, c3, c4, c5, c6, c7, c8 = st.columns([1, 2, 2, 4, 2, 1, 1, 1])
+
+                loai = "🌲 Tươi" if row["loai_nhap"] == "TUOI" else "🪵 Khô"
+
+                c1.write(row["so_phieu"])
+                c2.write(str(row["ngay"]))
+                c3.write(loai)
+                c4.write(row["khach_hang"])
+                c5.write(f'{row["tong_tien"]:,.0f}')
+
+                # =================== XEM ===================
+
+                if c6.button("👁", key=f"xem_{row['id']}"):
+                    st.session_state.xem_phieu = row["id"]
+                    st.rerun()
+
+                # =================== SỬA ===================
+
+                if c7.button("✏️", key=f"sua_{row['id']}"):
+
+                    st.session_state.id_phieu_dang_sua = row["id"]
+                    st.session_state.so_phieu_hien_tai = row["so_phieu"]
+                    st.session_state.kh_mac_dinh = row["khach_hang"]
+
+                    if row["loai_nhap"] == "KHO":
+                        
+                        st.session_state.tab_nhap_hang = "🪵 Nhập hàng khô"
+
+                        ct_go_cu = lay_chi_tiet_nhap_hang_kho(row["id"])
+
+                        st.session_state.phieu_nhap_kho_tam = []
+
+                        for dong in ct_go_cu:
+                            st.session_state.phieu_nhap_kho_tam.append({
+                                "loai_go_id": dong["loai_go_id"],
+                                "ten": dong["ten"],
+
+                                "phan_loai_go_id": dong["phan_loai_go_id"],
+                                "phan_loai": dong["ten_phan_loai"],
+
+                                "day": dong["day"],
+                                "rong": dong["rong"],
+                                "dai": dong["dai"],
+
+                                "kieu_tinh": dong["kieu_tinh"],
+
+                                "so_thanh": dong["so_thanh"],
+                                "so_luong": dong["so_luong"],
+
+                                "don_gia": dong["don_gia"],
+                                "thanh_tien": dong["thanh_tien"]
+                            })
+
+                    else:
+
+                        st.session_state.tab_nhap_hang = "🌲 Nhập hàng tươi"
+
+                        ct_go_cu = lay_chi_tiet_phieu_nhap(row["id"])
+
+                        st.session_state.phieu_nhap_tam = []
+
+                        for dong in ct_go_cu:
+
+                            st.session_state.phieu_nhap_tam.append({
+
+                                "loai_go_id": dong["loai_go_id"],
+                                "ten": dong["ten"],
+
+                                "day": dong["day"],
+                                "rong": dong["rong"],
+                                "dai": dong["dai"],
+
+                                "kieu_tinh": dong["kieu_tinh"],
+
+                                "so_thanh": dong["so_thanh"],
+                                "so_luong": dong["so_luong"],
+
+                                "don_gia": dong["don_gia"],
+                                "thanh_tien": dong["thanh_tien"]
+
+                            })
+                    st.session_state.tab_hien_tai = "📥 Nhập hàng"
+
+                    if row["loai_nhap"] == "TUOI":
+                        if st.session_state.phieu_nhap_tam:
+                            st.session_state.dong_sua = 0
+                    else:
+                        if st.session_state.phieu_nhap_kho_tam:
+                            st.session_state.dong_sua_kho = 0
+
+                    st.session_state.version_selectbox += 1
+                    st.session_state.version_selectbox_kho += 1
+
+                    st.rerun()
+
+                # =================== XÓA ===================
+
+                if c8.button("🗑", key=f"xoa_{row['id']}"):
+                    dialog_xoa(row["id"])
