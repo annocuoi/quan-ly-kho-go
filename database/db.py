@@ -1781,6 +1781,11 @@ def lay_kho_kho(
             ON ct.loai_go_id = lg.id
 
         WHERE 1=1
+          AND (
+              (lg.kieu_tinh = 'TRONG_LUONG' AND hs.so_luong > 0)
+              OR 
+              (lg.kieu_tinh = 'M3' AND hs.so_thanh > 0)
+          )
     """
 
     params = []
@@ -1920,21 +1925,20 @@ def luu_phan_loai(
     cur = conn.cursor()
 
     try:
-
-        # Lấy ham_say và chi_tiet_phieu_nhap
+        # Lấy hầm sấy và chi tiết phiếu nhập
         cur.execute("""
             SELECT
                 hs.id AS ham_say_id,
                 hs.chi_tiet_phieu_nhap_id
             FROM kho_kho kk
-
             JOIN ham_say hs
                 ON kk.ham_say_id = hs.id
-
             WHERE kk.id=%s
         """, (kho_kho_id,))
 
         row = cur.fetchone()
+
+        print("row:", row)
 
         if row is None:
             raise Exception("Không tìm thấy kho.")
@@ -1947,6 +1951,8 @@ def luu_phan_loai(
 
         for item in ds_phan_loai:
 
+            print("Đang xử lý:", item)
+
             cur.execute("""
                 SELECT id
                 FROM phan_loai_go
@@ -1955,76 +1961,75 @@ def luu_phan_loai(
 
             pl = cur.fetchone()
 
+            print("phan_loai:", pl)
+
             if pl is None:
-                raise Exception(f"Không tìm thấy phân loại: {item['loai']}")
-
-            cur.execute("""
-                INSERT INTO kho_phan_loai(
-
-                    kho_kho_id,
-                    chi_tiet_phieu_nhap_id,
-                    phan_loai_go_id,
-
-                    day,
-                    rong,
-                    dai,
-
-                    so_luong,
-                    so_thanh,
-
-                    ngay
-
+                raise Exception(
+                    f"Không tìm thấy phân loại: {item['loai']}"
                 )
 
-                VALUES(
+            so_luong = float(item.get("kg", 0) or item.get("m3", 0))
+            so_thanh = int(item.get("thanh", 0))
 
-                    %s,
-                    %s,
-                    %s,
-
-                    %s,
-                    %s,
-                    %s,
-
-                    %s,
-                    %s,
-
-                    NOW()
-
-                )
-            """, (
-
+            print(
+                "INSERT:",
                 kho_kho_id,
                 chi_tiet_phieu_nhap_id,
                 pl["id"],
-
                 item["day"],
                 item["rong"],
                 item["dai"],
+                so_luong,
+                so_thanh
+            )
 
-                item.get("kg", item.get("m3", 0)),
-                item.get("thanh", 0)
-
+            cur.execute("""
+                INSERT INTO kho_phan_loai(
+                    kho_kho_id,
+                    chi_tiet_phieu_nhap_id,
+                    phan_loai_go_id,
+                    day,
+                    rong,
+                    dai,
+                    so_luong,
+                    so_thanh,
+                    ngay
+                )
+                VALUES(
+                    %s,%s,%s,
+                    %s,%s,%s,
+                    %s,%s,
+                    NOW()
+                )
+            """, (
+                kho_kho_id,
+                chi_tiet_phieu_nhap_id,
+                pl["id"],
+                item["day"],
+                item["rong"],
+                item["dai"],
+                so_luong,
+                so_thanh
             ))
 
-            tong_so_luong += item.get("kg", item.get("m3", 0))
-            tong_so_thanh += item.get("thanh", 0)
+            print("INSERT OK")
 
-        # Kiểu tính
+            tong_so_luong += so_luong
+            tong_so_thanh += so_thanh
+
         cur.execute("""
             SELECT lg.kieu_tinh
             FROM ham_say hs
-
             JOIN chi_tiet_phieu_nhap ct
                 ON hs.chi_tiet_phieu_nhap_id = ct.id
-
             JOIN loai_go lg
                 ON ct.loai_go_id = lg.id
-
             WHERE hs.id=%s
         """, (ham_say_id,))
 
         kieu = cur.fetchone()["kieu_tinh"]
+
+        print("Kiểu tính:", kieu)
 
         if kieu == "TRONG_LUONG":
 
@@ -2067,24 +2072,29 @@ def luu_phan_loai(
 
             con_lai = cur.fetchone()["so_thanh"]
 
+        print("Còn lại:", con_lai)
+
         if con_lai <= 0:
 
-            cur.execute("""
-                DELETE
-                FROM kho_kho
-                WHERE id=%s
-            """, (kho_kho_id,))
+            # Không xóa bản ghi kho_kho để giữ liên kết
+            pass
 
         conn.commit()
 
-    except Exception:
+        
+
+    except Exception as e:
 
         conn.rollback()
+
+        print("ROLLBACK:", e)
+
         raise
 
     finally:
 
         close_connection(conn)
+
 def lay_kho_da_phan_loai(
     khach_hang_id=None,
     ten_go=None,

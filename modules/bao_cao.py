@@ -489,6 +489,11 @@ def show():
                     "so_thanh": "Thanh"
                 }, inplace=True)
 
+                df["Thao tác"] = df["Thao tác"].replace({
+                    "VAO_HAM": "Đưa vào hầm",
+                    "RA_HAM": "Ra hầm",
+                    "THU_HOI": "Thu hồi"
+                })
                 # =========================
                 # Format
                 # =========================
