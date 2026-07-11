@@ -686,7 +686,11 @@ def show():
                             "day": x["day"],
                             "rong": x["rong"],
                             "dai": x["dai"],
-                            "ten": f"{x['day']:g} × {x['rong']:g} × {x['dai']:g}"
+                            "ten": (
+                                f"{x['day']:g} × {x['rong']:g} × {x['dai']:g}"
+                                if x["day"] is not None
+                                else "(Kg)"
+                            )
                         })
 
                     with st.expander("📏 Chọn quy cách", expanded=False):
