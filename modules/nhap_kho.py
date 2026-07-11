@@ -622,7 +622,8 @@ def show():
                 key=f"go_select_tuoi_{st.session_state.version_selectbox}"
             )
             if ten_go == "-- Chọn loại gỗ --":
-                st.info("Chọn loại gỗ để thêm vào phiếu.")
+                pass
+                #st.info("Chọn loại gỗ để thêm vào phiếu.")
             else:
 
                 loai_go = next(

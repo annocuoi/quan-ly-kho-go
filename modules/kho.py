@@ -134,6 +134,7 @@ def nhap_phan_loai(lo):
                 st.stop()
 
         da_co = False
+
         for item in st.session_state.ds_phan_loai:
             if item["loai"] == ten_phan_loai:
 
@@ -143,11 +144,11 @@ def nhap_phan_loai(lo):
 
                 if lo_kg_float is not None:
 
-                    item["kg"] += so_luong
+                    item["kg"] = item.get("kg", 0) + so_luong
 
                 else:
 
-                    item["thanh"] += so_luong
+                    item["thanh"] = item.get("thanh", 0) + so_luong
 
                     item["m3"] = round(
                         item["day"] *
@@ -157,6 +158,7 @@ def nhap_phan_loai(lo):
                         1000000000,
                         6
                     )
+
                 da_co = True
                 break
 
@@ -172,7 +174,9 @@ def nhap_phan_loai(lo):
                     "rong": rong,
                     "dai": dai,
 
-                    "kg": so_luong
+                    "kg": so_luong,
+                    "thanh": 0,
+                    "m3": 0
 
                 })
 
@@ -195,8 +199,8 @@ def nhap_phan_loai(lo):
                     "rong": rong,
                     "dai": dai,
 
+                    "kg": 0,
                     "thanh": so_luong,
-
                     "m3": m3
 
                 })
