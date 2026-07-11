@@ -1,14 +1,13 @@
 import streamlit as st
 from datetime import date
-import pandas as pd
 
 from database.db import (
     lay_cong_no,
-    them_thanh_toan,
+    them_phat_sinh_cong_no,
     lay_lich_su_cong_no
 )
 
-@st.dialog("📜 Lịch sử công nợ")
+@st.dialog("📜 Lịch sử công nợ", width="large")
 def dialog_lich_su(khach):
 
     st.subheader(f"👤 {khach['ten']}")
@@ -21,35 +20,47 @@ def dialog_lich_su(khach):
 
     data = []
 
-    tong_no = 0
-    tong_tra = 0
+    tong_khach_no = 0
+    tong_minh_no = 0
+    tong_khach_tra = 0
 
     for row in ds:
 
-        if row["loai"] == "NHAP_HANG":
+        noi_dung = ""
+        khach_no = "-"
+        minh_no = "-"
+        khach_tra = "-"
 
-            no = row["so_tien"]
-            co = ""
+        if row["loai"] == "CONG_SAY":
 
-            tong_no += row["so_tien"]
+            noi_dung = f"Công sấy - Phiếu {row['so_phieu']}"
+            khach_no = f"{row['so_tien']:,.0f}"
+            tong_khach_no += row["so_tien"]
 
-            noi_dung = f"Phiếu nhập {row['so_phieu']}"
+        elif row["loai"] == "MUA_GO":
+
+            noi_dung = f"Mua gỗ - Phiếu {row['so_phieu']}"
+            minh_no = f"{row['so_tien']:,.0f}"
+            tong_minh_no += row["so_tien"]
+
+        elif row["loai"] == "THU_TIEN":
+
+            noi_dung = row["ghi_chu"] or "Thu tiền"
+            khach_tra = f"{row['so_tien']:,.0f}"
+            tong_khach_tra += row["so_tien"]
 
         else:
-
-            no = ""
-            co = row["so_tien"]
-
-            tong_tra += row["so_tien"]
-
-            noi_dung = row["ghi_chu"] or "Thanh toán"
+            continue
 
         data.append({
             "Ngày": row["ngay"].strftime("%d/%m/%Y"),
             "Nội dung": noi_dung,
-            "Nợ": f"{no:,.0f}" if no != "" else "",
-            "Có": f"{co:,.0f}" if co != "" else ""
+            "Khách nợ": khach_no,
+            "Mình nợ": minh_no,
+            "Khách trả": khach_tra
         })
+
+    import pandas as pd
 
     df = pd.DataFrame(data)
 
@@ -61,21 +72,14 @@ def dialog_lich_su(khach):
 
     st.divider()
 
-    c1, c2, c3 = st.columns(3)
+    c1, c2, c3, c4 = st.columns(4)
 
-    c1.metric(
-        "Phát sinh",
-        f"{tong_no:,.0f}"
-    )
-
-    c2.metric(
-        "Đã trả",
-        f"{tong_tra:,.0f}"
-    )
-
-    c3.metric(
+    c1.metric("Khách nợ", f"{tong_khach_no:,.0f}")
+    c2.metric("Mình nợ", f"{tong_minh_no:,.0f}")
+    c3.metric("Khách trả", f"{tong_khach_tra:,.0f}")
+    c4.metric(
         "Còn nợ",
-        f"{tong_no - tong_tra:,.0f}"
+        f"{tong_khach_no - tong_minh_no - tong_khach_tra:,.0f}"
     )
 
 @st.dialog("💵 Thu tiền")
@@ -113,13 +117,13 @@ def dialog_thu_tien(khach):
                 st.warning("Vui lòng nhập số tiền lớn hơn 0.")
                 st.stop()
 
-            them_thanh_toan(
+            them_phat_sinh_cong_no(
                 khach_hang_id=khach["id"],
                 ngay=str(ngay),
+                loai="THU_TIEN",
                 so_tien=so_tien,
                 ghi_chu=ghi_chu
             )
-
             st.success("Đã thu tiền thành công.")
             st.rerun()
 
@@ -137,31 +141,37 @@ def show():
         return
 
     # ===== Header =====
-    c1, c2, c3, c4, c5, c6 = st.columns([4, 2, 2, 2, 1, 1])
+    c1, c2, c3, c4, c5, c6, c7 = st.columns([4, 2, 2, 2, 2, 1, 1])
 
     c1.write("**Khách hàng**")
-    c2.write("**Phát sinh**")
-    c3.write("**Đã trả**")
-    c4.write("**Còn nợ**")
-    c5.write("👁")
-    c6.write("💵")
+    c2.write("**Công sấy**")
+    c3.write("**Mua gỗ**")
+    c4.write("**Khách trả**")
+    c5.write("**Còn nợ**")
+    c6.write("👁")
+    c7.write("💵")
 
     st.divider()
 
     # ===== Danh sách =====
     for row in ds:
 
-        con_no = row["phat_sinh"] - row["da_tra"]
+        con_no = (
+            row["cong_say"]
+            - row["mua_go"]
+            - row["thu_tien"]
+        )
 
-        c1, c2, c3, c4, c5, c6 = st.columns([4, 2, 2, 2, 1, 1])
+        c1, c2, c3, c4, c5, c6, c7 = st.columns([4, 2, 2, 2, 2, 1, 1])
 
         c1.write(row["ten"])
-        c2.write(f'{row["phat_sinh"]:,.0f}')
-        c3.write(f'{row["da_tra"]:,.0f}')
-        c4.write(f'**{con_no:,.0f}**')
+        c2.write(f'{row["cong_say"]:,.0f}')
+        c3.write(f'{row["mua_go"]:,.0f}')
+        c4.write(f'{row["thu_tien"]:,.0f}')
+        c5.write(f'**{con_no:,.0f}**')
 
-        if c5.button("👁", key=f"xem_{row['id']}"):
+        if c6.button("👁", key=f"xem_{row['id']}"):
             dialog_lich_su(row)
 
-        if c6.button("💵", key=f"thu_{row['id']}"):
+        if c7.button("💵", key=f"thu_{row['id']}"):
             dialog_thu_tien(row)

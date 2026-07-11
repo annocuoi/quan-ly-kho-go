@@ -2539,6 +2539,7 @@ def sua_cong_no(
     phieu_nhap_id,
     khach_hang_id,
     ngay,
+    loai,
     so_tien,
     ghi_chu=""
 ):
@@ -2548,22 +2549,21 @@ def sua_cong_no(
 
     cur.execute("""
         UPDATE cong_no
-
         SET
             khach_hang_id=%s,
             ngay=%s,
             so_tien=%s,
             ghi_chu=%s
-
         WHERE
             phieu_nhap_id=%s
-            AND loai='NHAP_HANG'
+            AND loai=%s
     """, (
         khach_hang_id,
         ngay,
         so_tien,
         ghi_chu,
-        phieu_nhap_id
+        phieu_nhap_id,
+        loai
     ))
 
     conn.commit()
@@ -2577,9 +2577,7 @@ def xoa_cong_no(phieu_nhap_id):
     cur.execute("""
         DELETE
         FROM cong_no
-        WHERE
-            phieu_nhap_id=%s
-            AND loai='NHAP_HANG'
+        WHERE phieu_nhap_id=%s
     """, (phieu_nhap_id,))
 
     conn.commit()
@@ -2599,22 +2597,32 @@ def lay_cong_no():
             COALESCE(
                 SUM(
                     CASE
-                        WHEN cn.loai='NHAP_HANG'
+                        WHEN cn.loai='CONG_SAY'
                         THEN cn.so_tien
                         ELSE 0
                     END
                 ),0
-            ) AS phat_sinh,
+            ) AS cong_say,
 
             COALESCE(
                 SUM(
                     CASE
-                        WHEN cn.loai='THANH_TOAN'
+                        WHEN cn.loai='MUA_GO'
                         THEN cn.so_tien
                         ELSE 0
                     END
                 ),0
-            ) AS da_tra
+            ) AS mua_go,
+
+            COALESCE(
+                SUM(
+                    CASE
+                        WHEN cn.loai='THU_TIEN'
+                        THEN cn.so_tien
+                        ELSE 0
+                    END
+                ),0
+            ) AS thu_tien
 
         FROM khach_hang kh
 
@@ -2635,9 +2643,10 @@ def lay_cong_no():
 
     return data
 
-def them_thanh_toan(
+def them_phat_sinh_cong_no(
     khach_hang_id,
     ngay,
+    loai,
     so_tien,
     ghi_chu=""
 ):
@@ -2653,10 +2662,11 @@ def them_thanh_toan(
             so_tien,
             ghi_chu
         )
-        VALUES(%s,%s,'THANH_TOAN',%s,%s)
+        VALUES(%s,%s,%s,%s,%s)
     """, (
         khach_hang_id,
         ngay,
+        loai,
         so_tien,
         ghi_chu
     ))
@@ -2671,17 +2681,11 @@ def lay_lich_su_cong_no(khach_hang_id):
 
     cur.execute("""
         SELECT
-
             cn.id,
-
             cn.ngay,
-
             cn.loai,
-
             cn.so_tien,
-
             cn.ghi_chu,
-
             pn.so_phieu
 
         FROM cong_no cn

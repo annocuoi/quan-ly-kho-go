@@ -821,7 +821,7 @@ def show():
                             them_cong_no(
                                 khach_hang_id=khach_hang["id"],
                                 ngay=str(ngay),
-                                loai="NHAP_HANG",
+                                loai="CONG_SAY",
                                 so_tien=tong_tien,
                                 phieu_nhap_id=id_phieu,
                                 ghi_chu=f"Phiếu nhập {so_phieu}"
@@ -842,6 +842,7 @@ def show():
                                 phieu_nhap_id=id_phieu,
                                 khach_hang_id=khach_hang["id"],
                                 ngay=str(ngay),
+                                loai="CONG_SAY",
                                 so_tien=tong_tien,
                                 ghi_chu=f"Phiếu nhập {so_phieu}"
                             )
@@ -1298,7 +1299,7 @@ def show():
                             them_cong_no(
                                 khach_hang_id=khach_hang["id"],
                                 ngay=str(ngay),
-                                loai="NHAP_HANG",
+                                loai="MUA_GO",
                                 so_tien=tong_tien,
                                 phieu_nhap_id=id_phieu,
                                 ghi_chu=f"Phiếu nhập {so_phieu}"
@@ -1319,6 +1320,7 @@ def show():
                                 phieu_nhap_id=id_phieu,
                                 khach_hang_id=khach_hang["id"],
                                 ngay=str(ngay),
+                                loai="MUA_GO",
                                 so_tien=tong_tien,
                                 ghi_chu=f"Phiếu nhập {so_phieu}"
                             )
