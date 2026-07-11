@@ -2460,8 +2460,8 @@ def lay_lich_su_ham(
             ON ct.loai_go_id = lg.id
 
         WHERE
-            DATE(ls.ngay AT TIME ZONE 'Asia/Ho_Chi_Minh')
-            BETWEEN %s AND %s
+            ls.ngay >= %s
+            AND ls.ngay < (%s::date + INTERVAL '1 day')
     """
 
     params = [tu_ngay, den_ngay]
@@ -2480,6 +2480,7 @@ def lay_lich_su_ham(
         sql += " AND lg.id = %s"
         params.append(loai_go_id)
 
+    # Lọc theo thao tác
     if hanh_dong not in (None, "", "Tất cả"):
         sql += " AND ls.hanh_dong = %s"
         params.append(hanh_dong)
