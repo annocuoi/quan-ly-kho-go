@@ -24,6 +24,19 @@ def show():
     ])
 
     with tab_nhap:
+        
+        loc_loai = st.radio(
+            "Loại phiếu",
+            ["Tất cả", "🌲 Hàng tươi", "🪵 Hàng khô"],
+            horizontal=True
+        )
+
+        if loc_loai == "🌲 Hàng tươi":
+            loai_nhap = "TUOI"
+        elif loc_loai == "🪵 Hàng khô":
+            loai_nhap = "KHO"
+        else:
+            loai_nhap = None
 
         c1, c2, c3, c4, c5 = st.columns([2,2,2,2,1])
 
@@ -114,9 +127,9 @@ def show():
                 den_ngay,
                 khach_hang_id,
                 ten_go,
-                loai_go_id
+                loai_go_id,
+                loai_nhap
             )
-
             if not ds:
                 st.warning("Không có dữ liệu.")
             else:
@@ -126,7 +139,9 @@ def show():
                     "Ngày",
                     "Số phiếu",
                     "Khách hàng",
+                    "Loại nhập",
                     "Tên gỗ",
+                    "Phân loại",
                     "Dày",
                     "Rộng",
                     "Dài",
@@ -134,7 +149,7 @@ def show():
                     "Thanh",
                     "M³",
                     "Đơn giá",
-                    "Thành tiền",
+                    "Thành tiền"
                 ]
 
                 df.insert(0, "STT", range(1, len(df) + 1))
@@ -207,7 +222,8 @@ def show():
                     tu_ngay,
                     den_ngay,
                     ten_kh,
-                    ten_go if ten_go else "Tất cả"
+                    ten_go if ten_go else "Tất cả",
+                    loc_loai
                 )
 
                 # =============================

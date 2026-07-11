@@ -833,86 +833,187 @@ def lay_bao_cao_nhap(
     den_ngay,
     khach_hang_id=None,
     ten_go=None,
-    loai_go_id=None
+    loai_go_id=None,
+    loai_nhap=None
 ):
 
     conn = get_connection()
     cur = conn.cursor()
 
-    sql = """
-        SELECT
-            pn.ngay,
-            pn.so_phieu,
-            kh.ten AS khach_hang,
+    ds = []
 
-            lg.ten,
+    # =========================
+    # HÀNG TƯƠI
+    # =========================
 
-            lg.day,
-            lg.rong,
-            lg.dai,
+    if loai_nhap in (None, "TUOI"):
 
-            CASE
-                WHEN lg.kieu_tinh='M3'
-                THEN NULL
-                ELSE ct.so_luong
-            END AS kg,
+        sql = """
+            SELECT
 
-            CASE
-                WHEN lg.kieu_tinh='M3'
-                THEN ct.so_thanh
-                ELSE NULL
-            END AS thanh,
+                pn.ngay,
+                pn.so_phieu,
+                kh.ten AS khach_hang,
 
-            CASE
-                WHEN lg.kieu_tinh='M3'
-                THEN ct.so_luong
-                ELSE NULL
-            END AS m3,
+                '🌲 Hàng tươi' AS loai_nhap,
 
-            ct.don_gia,
-            ct.thanh_tien
+                lg.ten,
 
-        FROM phieu_nhap pn
+                '' AS phan_loai,
 
-        JOIN khach_hang kh
-            ON pn.khach_hang_id = kh.id
+                lg.day,
+                lg.rong,
+                lg.dai,
 
-        JOIN chi_tiet_phieu_nhap ct
-            ON pn.id = ct.phieu_nhap_id
+                CASE
+                    WHEN lg.kieu_tinh='TRONG_LUONG'
+                    THEN ct.so_luong
+                    ELSE NULL
+                END AS kg,
 
-        JOIN loai_go lg
-            ON ct.loai_go_id = lg.id
+                CASE
+                    WHEN lg.kieu_tinh='M3'
+                    THEN ct.so_thanh
+                    ELSE NULL
+                END AS thanh,
 
-        WHERE
-            pn.ngay BETWEEN %s AND %s
-    """
+                CASE
+                    WHEN lg.kieu_tinh='M3'
+                    THEN ct.so_luong
+                    ELSE NULL
+                END AS m3,
 
-    params = [tu_ngay, den_ngay]
+                ct.don_gia,
+                ct.thanh_tien
 
-    if khach_hang_id is not None:
-        sql += " AND pn.khach_hang_id = %s"
-        params.append(khach_hang_id)
+            FROM phieu_nhap pn
 
-    # Lọc theo tên gỗ
-    if ten_go is not None:
-        sql += " AND lg.ten = %s"
-        params.append(ten_go)
+            JOIN khach_hang kh
+                ON pn.khach_hang_id=kh.id
 
-    # Lọc theo quy cách
-    if loai_go_id is not None:
-        sql += " AND lg.id = %s"
-        params.append(loai_go_id)
+            JOIN chi_tiet_phieu_nhap ct
+                ON pn.id=ct.phieu_nhap_id
 
-    sql += """
-        ORDER BY
-            pn.ngay,
-            pn.so_phieu,
-            ct.id
-    """
+            JOIN loai_go lg
+                ON ct.loai_go_id=lg.id
 
-    cur.execute(sql, tuple(params))
+            WHERE
+                pn.loai_nhap='TUOI'
+                AND pn.ngay BETWEEN %s AND %s
+        """
 
-    ds = cur.fetchall()
+        params = [tu_ngay, den_ngay]
+
+        if khach_hang_id is not None:
+            sql += " AND pn.khach_hang_id=%s"
+            params.append(khach_hang_id)
+
+        if ten_go is not None:
+            sql += " AND lg.ten=%s"
+            params.append(ten_go)
+
+        if loai_go_id is not None:
+            sql += " AND lg.id=%s"
+            params.append(loai_go_id)
+
+        sql += " ORDER BY pn.ngay,pn.so_phieu,ct.id"
+
+        cur.execute(sql, tuple(params))
+
+        ds.extend(cur.fetchall())
+
+    # =========================
+    # HÀNG KHÔ
+    # =========================
+
+    if loai_nhap in (None, "KHO"):
+
+        sql = """
+            SELECT
+
+                pn.ngay,
+                pn.so_phieu,
+                kh.ten AS khach_hang,
+
+                '🪵 Hàng khô' AS loai_nhap,
+
+                lg.ten,
+
+                pl.ten AS phan_loai,
+
+                kp.day,
+                kp.rong,
+                kp.dai,
+
+                CASE
+                    WHEN lg.kieu_tinh='TRONG_LUONG'
+                    THEN kp.so_luong
+                    ELSE NULL
+                END AS kg,
+
+                CASE
+                    WHEN lg.kieu_tinh='M3'
+                    THEN kp.so_thanh
+                    ELSE NULL
+                END AS thanh,
+
+                CASE
+                    WHEN lg.kieu_tinh='M3'
+                    THEN kp.so_luong
+                    ELSE NULL
+                END AS m3,
+
+                ct.don_gia,
+                ct.thanh_tien
+
+            FROM kho_phan_loai kp
+
+            JOIN chi_tiet_phieu_nhap ct
+                ON kp.chi_tiet_phieu_nhap_id=ct.id
+
+            JOIN phieu_nhap pn
+                ON ct.phieu_nhap_id=pn.id
+
+            JOIN khach_hang kh
+                ON pn.khach_hang_id=kh.id
+
+            JOIN loai_go lg
+                ON ct.loai_go_id=lg.id
+
+            JOIN phan_loai_go pl
+                ON kp.phan_loai_go_id=pl.id
+
+            WHERE
+                pn.loai_nhap='KHO'
+                AND pn.ngay BETWEEN %s AND %s
+        """
+
+        params = [tu_ngay, den_ngay]
+
+        if khach_hang_id is not None:
+            sql += " AND pn.khach_hang_id=%s"
+            params.append(khach_hang_id)
+
+        if ten_go is not None:
+            sql += " AND lg.ten=%s"
+            params.append(ten_go)
+
+        if loai_go_id is not None:
+            sql += " AND lg.id=%s"
+            params.append(loai_go_id)
+
+        sql += " ORDER BY pn.ngay,pn.so_phieu,kp.id"
+
+        cur.execute(sql, tuple(params))
+
+        ds.extend(cur.fetchall())
+
+    ds.sort(
+        key=lambda x: (
+            x["ngay"],
+            x["so_phieu"]
+        )
+    )
 
     close_connection(conn)
 

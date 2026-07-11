@@ -21,7 +21,8 @@ def tao_pdf_bao_cao(
     tu_ngay,
     den_ngay,
     ten_kh,
-    ten_go="Tất cả"
+    ten_go="Tất cả",
+    loai_nhap="Tất cả"
 ):
 
     dang_ky_font()
@@ -74,6 +75,12 @@ def tao_pdf_bao_cao(
             styles["Normal"]
         )
     )
+    elements.append(
+        Paragraph(
+            f"Loại phiếu: {loai_nhap}",
+            styles["Normal"]
+        )
+    )
 
     elements.append(Spacer(1, 12))
 
@@ -89,20 +96,21 @@ def tao_pdf_bao_cao(
         data,
         repeatRows=1,
         colWidths=[
-            25,   # STT
-            55,   # Ngày
-            40,   # Số phiếu
-            65,   # Khách hàng
-            70,   # Tên gỗ
-            60,   # Ký hiệu
-            35,   # Dày
-            35,   # Rộng
-            40,   # Dài
-            55,   # Kg
-            55,   # Thanh
-            45,   # M3
+            22,   # STT
+            52,   # Ngày
+            38,   # Phiếu
+            70,   # Khách hàng
+            45,   # Loại
+            60,   # Tên gỗ
+            60,   # Phân loại
+            30,   # Dày
+            30,   # Rộng
+            30,   # Dài
+            40,   # Kg
+            40,   # Thanh
+            40,   # M3
             55,   # Đơn giá
-            65,   # Thành tiền
+            60,   # Thành tiền
         ]
     )
 
