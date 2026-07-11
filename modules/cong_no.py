@@ -1,5 +1,9 @@
 import streamlit as st
 from datetime import date
+import io
+import pandas as pd
+
+from utils.pdf_cong_no import tao_pdf_cong_no
 
 from database.db import (
     lay_cong_no,
@@ -63,12 +67,53 @@ def dialog_lich_su(khach):
     import pandas as pd
 
     df = pd.DataFrame(data)
+    buffer = io.BytesIO()
+
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        df.to_excel(
+            writer,
+            index=False,
+            sheet_name="Công nợ"
+        )
+
+    buffer.seek(0)
+
+    pdf = tao_pdf_cong_no(
+        df,
+        khach["ten"],
+        tong_khach_no,
+        tong_minh_no,
+        tong_khach_tra
+    )
 
     st.dataframe(
         df,
         use_container_width=True,
         hide_index=True
     )
+
+    st.divider()
+    c1, c2 = st.columns(2)
+
+    with c1:
+        st.download_button(
+            "📄 Xuất PDF",
+            data=pdf,
+            file_name=f"Cong_no_{khach['ten']}.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+            type="primary"
+        )
+
+    with c2:
+        st.download_button(
+            "📊 Xuất Excel",
+            data=buffer,
+            file_name=f"Cong_no_{khach['ten']}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+            type="primary"
+        )
 
     st.divider()
 
