@@ -11,7 +11,8 @@ from database.db import (
     lay_ds_ten_go,
     lay_ds_quy_cach,
     lay_ds_loai_go,
-    lay_lich_su_ham
+    lay_lich_su_ham,
+    lay_ds_ham
 )
 
 def show():
@@ -313,7 +314,7 @@ def show():
         # Hàng 2
         # =========================
 
-        c1, c2, c3, c4, c5 = st.columns([3,3,3,2,1])
+        c1, c2, c3, c4, c5, c6 = st.columns([2.2, 2.2, 2.2, 1.3, 1.5, 0.8])
 
         with c1:
 
@@ -390,24 +391,40 @@ def show():
 
         with c4:
 
+            ds_ham = ["Tất cả"] + [
+                str(x["so_ham"])
+                for x in lay_ds_ham()
+            ]
+
+            so_ham = st.selectbox(
+                "Hầm",
+                ds_ham,
+                key="ham_so_ham"
+            )
+
+            if so_ham == "Tất cả":
+                so_ham = None
+            else:
+                so_ham = int(so_ham)
+
+        with c5:
+
             thao_tac = st.selectbox(
                 "Thao tác",
                 [
                     "Tất cả",
                     "VAO_HAM",
-                    "RA_HAM",
-                    "THU_HOI"
+                    "RA_HAM"
                 ],
                 format_func=lambda x: {
                     "Tất cả": "Tất cả",
                     "VAO_HAM": "Đưa vào hầm",
-                    "RA_HAM": "Ra hầm",
-                    "THU_HOI": "Thu hồi"
+                    "RA_HAM": "Ra hầm"
                 }[x],
                 key="ham_thao_tac"
             )
 
-        with c5:
+        with c6:
 
             st.write("")
             st.write("")
@@ -428,7 +445,8 @@ def show():
                 khach_hang_id,
                 ten_go,
                 loai_go_id,
-                thao_tac
+                thao_tac,
+                so_ham
             )
 
             if not ds:

@@ -1938,7 +1938,6 @@ def luu_phan_loai(
 
         row = cur.fetchone()
 
-        print("row:", row)
 
         if row is None:
             raise Exception("Không tìm thấy kho.")
@@ -1951,7 +1950,6 @@ def luu_phan_loai(
 
         for item in ds_phan_loai:
 
-            print("Đang xử lý:", item)
 
             cur.execute("""
                 SELECT id
@@ -1961,7 +1959,6 @@ def luu_phan_loai(
 
             pl = cur.fetchone()
 
-            print("phan_loai:", pl)
 
             if pl is None:
                 raise Exception(
@@ -1971,17 +1968,6 @@ def luu_phan_loai(
             so_luong = float(item.get("kg", 0) or item.get("m3", 0))
             so_thanh = int(item.get("thanh", 0))
 
-            print(
-                "INSERT:",
-                kho_kho_id,
-                chi_tiet_phieu_nhap_id,
-                pl["id"],
-                item["day"],
-                item["rong"],
-                item["dai"],
-                so_luong,
-                so_thanh
-            )
 
             cur.execute("""
                 INSERT INTO kho_phan_loai(
@@ -2012,7 +1998,7 @@ def luu_phan_loai(
                 so_thanh
             ))
 
-            print("INSERT OK")
+           
 
             tong_so_luong += so_luong
             tong_so_thanh += so_thanh
@@ -2029,7 +2015,7 @@ def luu_phan_loai(
 
         kieu = cur.fetchone()["kieu_tinh"]
 
-        print("Kiểu tính:", kieu)
+       
 
         if kieu == "TRONG_LUONG":
 
@@ -2072,7 +2058,7 @@ def luu_phan_loai(
 
             con_lai = cur.fetchone()["so_thanh"]
 
-        print("Còn lại:", con_lai)
+       
 
         if con_lai <= 0:
 
@@ -2086,8 +2072,6 @@ def luu_phan_loai(
     except Exception as e:
 
         conn.rollback()
-
-        print("ROLLBACK:", e)
 
         raise
 
@@ -2428,7 +2412,8 @@ def lay_lich_su_ham(
     khach_hang_id=None,
     ten_go=None,
     loai_go_id=None,
-    hanh_dong=None
+    hanh_dong=None,
+    so_ham=None
 ):
 
     conn = get_connection()
@@ -2472,6 +2457,7 @@ def lay_lich_su_ham(
         WHERE
             ls.ngay >= %s
             AND ls.ngay < (%s::date + INTERVAL '1 day')
+            AND ls.hanh_dong <> 'THU_HOI'
     """
 
     params = [tu_ngay, den_ngay]
@@ -2491,9 +2477,14 @@ def lay_lich_su_ham(
         params.append(loai_go_id)
 
     # Lọc theo thao tác
-    if hanh_dong not in (None, "", "Tất cả"):
+    if hanh_dong in ("VAO_HAM", "RA_HAM"):
         sql += " AND ls.hanh_dong = %s"
         params.append(hanh_dong)
+    if so_ham is not None:
+
+        sql += " AND ls.so_ham = %s"
+
+        params.append(so_ham)
 
     sql += """
         ORDER BY
@@ -2893,3 +2884,21 @@ def cap_nhat_nhap_hang_kho(
         raise e
     finally:
         close_connection(conn)
+
+def lay_ds_ham():
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT DISTINCT
+            so_ham
+        FROM lich_su_ham
+        ORDER BY so_ham
+    """)
+
+    ds = cur.fetchall()
+
+    close_connection(conn)
+
+    return ds
