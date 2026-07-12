@@ -3099,3 +3099,61 @@ def lay_chi_tiet_cong_no(cong_no_id):
     close_connection(conn)
 
     return data
+
+def lay_chi_tiet_phieu_cong_no(cong_no_id):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT
+
+            pn.so_phieu,
+
+            pn.ngay,
+
+            kh.ten AS khach_hang,
+
+            lg.ten,
+
+            lg.kieu_tinh,
+
+            lg.day,
+
+            lg.rong,
+
+            lg.dai,
+
+            ct.so_thanh,
+
+            ct.so_luong,
+
+            ct.don_gia,
+
+            ct.thanh_tien
+
+        FROM cong_no cn
+
+        JOIN phieu_nhap pn
+            ON cn.phieu_nhap_id = pn.id
+
+        JOIN khach_hang kh
+            ON pn.khach_hang_id = kh.id
+
+        JOIN chi_tiet_phieu_nhap ct
+            ON pn.id = ct.phieu_nhap_id
+
+        JOIN loai_go lg
+            ON ct.loai_go_id = lg.id
+
+        WHERE cn.id = %s
+
+        ORDER BY ct.id
+
+    """, (cong_no_id,))
+
+    data = cur.fetchall()
+
+    close_connection(conn)
+
+    return data

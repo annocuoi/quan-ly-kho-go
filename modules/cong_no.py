@@ -6,7 +6,8 @@ from database.db import (
     lay_tong_hop_cong_no,
     them_thanh_toan,
     lay_ds_thanh_toan,
-    lay_chi_tiet_cong_no
+    lay_chi_tiet_cong_no,
+    lay_chi_tiet_phieu_cong_no
 )
 
 
@@ -14,58 +15,140 @@ from database.db import (
 def dialog_chi_tiet(cong_no_id):
 
     phieu = lay_chi_tiet_cong_no(cong_no_id)
-    ds = lay_ds_thanh_toan(cong_no_id)
+    ds_go = lay_chi_tiet_phieu_cong_no(cong_no_id)
+    ds_tt = lay_ds_thanh_toan(cong_no_id)
 
-    st.write(f"**Số phiếu:** {phieu['so_phieu']}")
-    st.write(f"**Khách hàng:** {phieu['khach_hang']}")
-    st.write(f"**Ngày:** {phieu['ngay'].strftime('%d/%m/%Y')}")
-    st.write(f"**Tổng tiền:** {phieu['so_tien']:,.0f}")
-    st.write(f"**Đã thanh toán:** {phieu['da_thanh_toan']:,.0f}")
-    st.write(f"**Còn lại:** {phieu['con_lai']:,.0f}")
+    st.subheader(f"📄 Phiếu {phieu['so_phieu']}")
 
-    st.divider()
+    c1, c2, c3 = st.columns(3)
 
-    if not ds:
-        st.info("Phiếu này chưa có lần thanh toán nào.")
-        return
-
-    c1, c2, c3, c4 = st.columns([1,2,2,5])
-
-    c1.write("**STT**")
-    c2.write("**Ngày**")
-    c3.write("**Số tiền**")
-    c4.write("**Ghi chú**")
+    c1.write(f"**Khách hàng:** {phieu['khach_hang']}")
+    c2.write(f"**Ngày:** {phieu['ngay'].strftime('%d/%m/%Y')}")
+    c3.write(f"**Tổng tiền:** {phieu['so_tien']:,.0f}")
 
     st.divider()
 
-    tong = 0
+    # ================= CHI TIẾT HÀNG =================
 
-    for i, row in enumerate(ds, start=1):
-
-        tong += row["so_tien"]
-
-        c1, c2, c3, c4 = st.columns([1,2,2,5])
-
-        c1.write(i)
-
-        c2.write(
-            row["ngay"].strftime("%d/%m/%Y")
-        )
-
-        c3.write(
-            f"{row['so_tien']:,.0f}"
-        )
-
-        c4.write(
-            row["ghi_chu"] or ""
-        )
-
-    st.divider()
-
-    st.metric(
-        "Đã thanh toán",
-        f"{tong:,.0f}"
+    c1, c2, c3, c4, c5, c6, c7, c8, c9, c10 = st.columns(
+        [3,2,1,1,1,2,2,2,2,2]
     )
+
+    c1.write("**Tên gỗ**")
+    c2.write("**Phân loại**")
+    c3.write("**Dày**")
+    c4.write("**Rộng**")
+    c5.write("**Dài**")
+    c6.write("**Kg**")
+    c7.write("**Thanh**")
+    c8.write("**M³**")
+    c9.write("**Đơn giá**")
+    c10.write("**Thành tiền**")
+
+    st.divider()
+
+    tong_kg = 0
+    tong_thanh = 0
+    tong_m3 = 0
+    tong_tien = 0
+
+    for row in ds_go:
+
+        kg = row["so_luong"] if row["kieu_tinh"] == "TRONG_LUONG" else ""
+        thanh = row["so_thanh"] if row["kieu_tinh"] == "M3" else ""
+        m3 = row["so_luong"] if row["kieu_tinh"] == "M3" else ""
+
+        if row["kieu_tinh"] == "TRONG_LUONG":
+            tong_kg += row["so_luong"]
+        else:
+            tong_thanh += row["so_thanh"]
+            tong_m3 += row["so_luong"]
+
+        tong_tien += row["thanh_tien"]
+
+        c1, c2, c3, c4, c5, c6, c7, c8, c9, c10 = st.columns(
+            [3,2,1,1,1,2,2,2,2,2]
+        )
+
+        c1.write(row["ten"])
+        c2.write("")
+        c3.write("" if row["day"] is None else int(row["day"]))
+        c4.write("" if row["rong"] is None else int(row["rong"]))
+        c5.write("" if row["dai"] is None else int(row["dai"]))
+        c6.write("" if kg == "" else f"{kg:,.0f}")
+        c7.write("" if thanh == "" else f"{thanh:,}")
+        c8.write("" if m3 == "" else f"{m3:.3f}")
+        c9.write(f"{row['don_gia']:,.0f}")
+        c10.write(f"{row['thanh_tien']:,.0f}")
+
+    st.divider()
+
+    c1, c2, c3, c4, c5, c6, c7, c8, c9, c10 = st.columns(
+        [3,2,1,1,1,2,2,2,2,2]
+    )
+
+    c1.write("")
+    c2.write("**TỔNG CỘNG**")
+    c3.write("")
+    c4.write("")
+    c5.write("")
+    c6.write(f"**{tong_kg:,.0f}**" if tong_kg else "")
+    c7.write(f"**{tong_thanh:,}**" if tong_thanh else "")
+    c8.write(f"**{tong_m3:.3f}**" if tong_m3 else "")
+    c9.write("")
+    c10.write(f"**{tong_tien:,.0f}**")
+    
+
+    st.divider()
+
+    for i, row in enumerate(ds_tt, start=1):
+
+        c1, c2, c3, c4, c5, c6, c7, c8, c9, c10 = st.columns(
+            [3,2,1,1,1,2,2,2,2,2]
+        )
+
+        c1.write(row["ngay"].strftime("%d/%m/%Y"))
+        c2.write(f"Thanh toán lần {i}")
+        c3.write("")
+        c4.write("")
+        c5.write("")
+        c6.write("")
+        c7.write("")
+        c8.write("")
+        c9.write("")
+        c10.write(f"{row['so_tien']:,.0f}")
+
+    st.divider()
+
+    c1, c2, c3, c4, c5, c6, c7, c8, c9, c10 = st.columns(
+        [3,2,1,1,1,2,2,2,2,2]
+    )
+
+    c1.write("")
+    c2.write("**ĐÃ THANH TOÁN**")
+    c3.write("")
+    c4.write("")
+    c5.write("")
+    c6.write("")
+    c7.write("")
+    c8.write("")
+    c9.write("")
+    c10.write(f"**{phieu['da_thanh_toan']:,.0f}**")
+
+    c1, c2, c3, c4, c5, c6, c7, c8, c9, c10 = st.columns(
+        [3,2,1,1,1,2,2,2,2,2]
+    )
+
+    c1.write("")
+    c2.write("**CÒN PHẢI THU**")
+    c3.write("")
+    c4.write("")
+    c5.write("")
+    c6.write("")
+    c7.write("")
+    c8.write("")
+    c9.write("")
+    c10.write(f"**{phieu['con_lai']:,.0f}**")
 
 
 @st.dialog("💵 Thanh toán")
