@@ -264,6 +264,26 @@ def tao_database():
         )
     """)
 
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS thanh_toan(
+
+            id SERIAL PRIMARY KEY,
+
+            cong_no_id INTEGER NOT NULL,
+
+            ngay DATE NOT NULL,
+
+            so_tien DOUBLE PRECISION NOT NULL,
+
+            ghi_chu TEXT,
+
+            FOREIGN KEY(cong_no_id)
+                REFERENCES cong_no(id)
+                ON DELETE CASCADE
+
+        )
+    """)
+
     # =========================
     # PHÂN LOẠI GỖ
     # =========================
@@ -2583,7 +2603,7 @@ def xoa_cong_no(phieu_nhap_id):
     conn.commit()
     close_connection(conn)
 
-def lay_cong_no():
+def lay_no_phai_thu():
 
     conn = get_connection()
     cur = conn.cursor()
@@ -2591,50 +2611,53 @@ def lay_cong_no():
     cur.execute("""
         SELECT
 
-            kh.id,
-            kh.ten,
+            cn.id,
+
+            pn.so_phieu,
+
+            cn.ngay,
+
+            kh.ten AS khach_hang,
+
+            cn.so_tien,
 
             COALESCE(
-                SUM(
-                    CASE
-                        WHEN cn.loai='CONG_SAY'
-                        THEN cn.so_tien
-                        ELSE 0
-                    END
-                ),0
-            ) AS cong_say,
+                SUM(tt.so_tien),
+                0
+            ) AS da_thanh_toan,
 
-            COALESCE(
-                SUM(
-                    CASE
-                        WHEN cn.loai='MUA_GO'
-                        THEN cn.so_tien
-                        ELSE 0
-                    END
-                ),0
-            ) AS mua_go,
+            cn.so_tien
+            - COALESCE(
+                SUM(tt.so_tien),
+                0
+            ) AS con_lai
 
-            COALESCE(
-                SUM(
-                    CASE
-                        WHEN cn.loai='THU_TIEN'
-                        THEN cn.so_tien
-                        ELSE 0
-                    END
-                ),0
-            ) AS thu_tien
+        FROM cong_no cn
 
-        FROM khach_hang kh
+        JOIN khach_hang kh
+            ON cn.khach_hang_id = kh.id
 
-        LEFT JOIN cong_no cn
-            ON kh.id = cn.khach_hang_id
+        LEFT JOIN phieu_nhap pn
+            ON cn.phieu_nhap_id = pn.id
+
+        LEFT JOIN thanh_toan tt
+            ON cn.id = tt.cong_no_id
+
+        WHERE cn.loai = 'CONG_SAY'
 
         GROUP BY
-            kh.id,
-            kh.ten
+
+            cn.id,
+            pn.so_phieu,
+            cn.ngay,
+            kh.ten,
+            cn.so_tien
 
         ORDER BY
-            kh.ten
+
+            cn.ngay,
+            pn.so_phieu
+
     """)
 
     data = cur.fetchall()
@@ -2643,68 +2666,6 @@ def lay_cong_no():
 
     return data
 
-def them_phat_sinh_cong_no(
-    khach_hang_id,
-    ngay,
-    loai,
-    so_tien,
-    ghi_chu=""
-):
-
-    conn = get_connection()
-    cur = conn.cursor()
-
-    cur.execute("""
-        INSERT INTO cong_no(
-            khach_hang_id,
-            ngay,
-            loai,
-            so_tien,
-            ghi_chu
-        )
-        VALUES(%s,%s,%s,%s,%s)
-    """, (
-        khach_hang_id,
-        ngay,
-        loai,
-        so_tien,
-        ghi_chu
-    ))
-
-    conn.commit()
-    close_connection(conn)
-
-def lay_lich_su_cong_no(khach_hang_id):
-
-    conn = get_connection()
-    cur = conn.cursor()
-
-    cur.execute("""
-        SELECT
-            cn.id,
-            cn.ngay,
-            cn.loai,
-            cn.so_tien,
-            cn.ghi_chu,
-            pn.so_phieu
-
-        FROM cong_no cn
-
-        LEFT JOIN phieu_nhap pn
-            ON cn.phieu_nhap_id = pn.id
-
-        WHERE cn.khach_hang_id=%s
-
-        ORDER BY
-            cn.ngay,
-            cn.id
-    """, (khach_hang_id,))
-
-    data = cur.fetchall()
-
-    close_connection(conn)
-
-    return data
 
 def lay_ds_ten_go():
 
@@ -2906,3 +2867,235 @@ def lay_ds_ham():
     close_connection(conn)
 
     return ds
+
+def them_thanh_toan(
+    cong_no_id,
+    ngay,
+    so_tien,
+    ghi_chu=""
+):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        INSERT INTO thanh_toan(
+            cong_no_id,
+            ngay,
+            so_tien,
+            ghi_chu
+        )
+        VALUES(%s,%s,%s,%s)
+    """,(
+        cong_no_id,
+        ngay,
+        so_tien,
+        ghi_chu
+    ))
+
+    conn.commit()
+    close_connection(conn)
+
+def lay_ds_thanh_toan(cong_no_id):
+
+    conn=get_connection()
+    cur=conn.cursor()
+
+    cur.execute("""
+        SELECT
+            id,
+            ngay,
+            so_tien,
+            ghi_chu
+        FROM thanh_toan
+        WHERE cong_no_id=%s
+        ORDER BY ngay,id
+    """,(cong_no_id,))
+
+    ds=cur.fetchall()
+
+    close_connection(conn)
+
+    return ds
+
+def lay_no_phai_tra():
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT
+
+            cn.id,
+
+            pn.so_phieu,
+
+            cn.ngay,
+
+            kh.ten AS khach_hang,
+
+            cn.so_tien,
+
+            COALESCE(
+                SUM(tt.so_tien),
+                0
+            ) AS da_thanh_toan,
+
+            cn.so_tien
+            - COALESCE(
+                SUM(tt.so_tien),
+                0
+            ) AS con_lai
+
+        FROM cong_no cn
+
+        JOIN khach_hang kh
+            ON cn.khach_hang_id = kh.id
+
+        LEFT JOIN phieu_nhap pn
+            ON cn.phieu_nhap_id = pn.id
+
+        LEFT JOIN thanh_toan tt
+            ON cn.id = tt.cong_no_id
+
+        WHERE cn.loai = 'MUA_GO'
+
+        GROUP BY
+
+            cn.id,
+            pn.so_phieu,
+            cn.ngay,
+            kh.ten,
+            cn.so_tien
+
+        ORDER BY
+
+            cn.ngay,
+            pn.so_phieu
+
+    """)
+
+    data = cur.fetchall()
+
+    close_connection(conn)
+
+    return data
+def lay_tong_hop_cong_no():
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT
+
+            kh.id,
+
+            kh.ten,
+
+            COALESCE(
+                SUM(
+                    CASE
+                        WHEN cn.loai='CONG_SAY'
+                        THEN cn.so_tien
+                    END
+                ),0
+            ) AS no_phai_thu,
+
+            COALESCE(
+                SUM(
+                    CASE
+                        WHEN cn.loai='MUA_GO'
+                        THEN cn.so_tien
+                    END
+                ),0
+            ) AS no_phai_tra,
+
+            COALESCE(
+                SUM(
+                    CASE
+                        WHEN cn.loai='CONG_SAY'
+                        THEN cn.so_tien
+                    END
+                ),0
+            )
+            -
+            COALESCE(
+                SUM(
+                    CASE
+                        WHEN cn.loai='MUA_GO'
+                        THEN cn.so_tien
+                    END
+                ),0
+            ) AS chenh_lech
+
+        FROM khach_hang kh
+
+        LEFT JOIN cong_no cn
+            ON kh.id=cn.khach_hang_id
+
+        GROUP BY
+            kh.id,
+            kh.ten
+
+        ORDER BY
+            kh.ten
+
+    """)
+
+    data = cur.fetchall()
+
+    close_connection(conn)
+
+    return data
+
+def lay_chi_tiet_cong_no(cong_no_id):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT
+
+            cn.id,
+
+            cn.loai,
+
+            cn.ngay,
+
+            cn.so_tien,
+
+            pn.so_phieu,
+
+            kh.ten AS khach_hang,
+
+            COALESCE(SUM(tt.so_tien),0) AS da_thanh_toan,
+
+            cn.so_tien - COALESCE(SUM(tt.so_tien),0) AS con_lai
+
+        FROM cong_no cn
+
+        JOIN khach_hang kh
+            ON cn.khach_hang_id = kh.id
+
+        LEFT JOIN phieu_nhap pn
+            ON cn.phieu_nhap_id = pn.id
+
+        LEFT JOIN thanh_toan tt
+            ON cn.id = tt.cong_no_id
+
+        WHERE cn.id=%s
+
+        GROUP BY
+            cn.id,
+            cn.loai,
+            cn.ngay,
+            cn.so_tien,
+            pn.so_phieu,
+            kh.ten
+    """, (cong_no_id,))
+
+    data = cur.fetchone()
+
+    close_connection(conn)
+
+    return data

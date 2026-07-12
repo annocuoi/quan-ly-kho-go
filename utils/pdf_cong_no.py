@@ -119,8 +119,8 @@ def tao_pdf_cong_no(
     tong = Table(
         [
             [
-                "Khách nợ",
-                "Mình nợ",
+                "Nợ Phải Thu",
+                "Nợ Phải Trả",
                 "Khách trả",
                 "Còn nợ"
             ],

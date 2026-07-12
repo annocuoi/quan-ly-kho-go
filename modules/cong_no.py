@@ -1,222 +1,376 @@
 import streamlit as st
-from datetime import date
-import io
-import pandas as pd
-
-from utils.pdf_cong_no import tao_pdf_cong_no
 
 from database.db import (
-    lay_cong_no,
-    them_phat_sinh_cong_no,
-    lay_lich_su_cong_no
+    lay_no_phai_thu,
+    lay_no_phai_tra,
+    lay_tong_hop_cong_no,
+    them_thanh_toan,
+    lay_ds_thanh_toan,
+    lay_chi_tiet_cong_no
 )
 
-@st.dialog("📜 Lịch sử công nợ", width="large")
-def dialog_lich_su(khach):
 
-    st.subheader(f"👤 {khach['ten']}")
+@st.dialog("📄 Chi tiết phiếu", width="large")
+def dialog_chi_tiet(cong_no_id):
 
-    ds = lay_lich_su_cong_no(khach["id"])
+    phieu = lay_chi_tiet_cong_no(cong_no_id)
+    ds = lay_ds_thanh_toan(cong_no_id)
+
+    st.write(f"**Số phiếu:** {phieu['so_phieu']}")
+    st.write(f"**Khách hàng:** {phieu['khach_hang']}")
+    st.write(f"**Ngày:** {phieu['ngay'].strftime('%d/%m/%Y')}")
+    st.write(f"**Tổng tiền:** {phieu['so_tien']:,.0f}")
+    st.write(f"**Đã thanh toán:** {phieu['da_thanh_toan']:,.0f}")
+    st.write(f"**Còn lại:** {phieu['con_lai']:,.0f}")
+
+    st.divider()
 
     if not ds:
-        st.info("Khách hàng chưa có công nợ.")
+        st.info("Phiếu này chưa có lần thanh toán nào.")
         return
 
-    data = []
+    c1, c2, c3, c4 = st.columns([1,2,2,5])
 
-    tong_khach_no = 0
-    tong_minh_no = 0
-    tong_khach_tra = 0
-
-    for row in ds:
-
-        noi_dung = ""
-        khach_no = "-"
-        minh_no = "-"
-        khach_tra = "-"
-
-        if row["loai"] == "CONG_SAY":
-
-            noi_dung = f"Công sấy - Phiếu {row['so_phieu']}"
-            khach_no = f"{row['so_tien']:,.0f}"
-            tong_khach_no += row["so_tien"]
-
-        elif row["loai"] == "MUA_GO":
-
-            noi_dung = f"Mua gỗ - Phiếu {row['so_phieu']}"
-            minh_no = f"{row['so_tien']:,.0f}"
-            tong_minh_no += row["so_tien"]
-
-        elif row["loai"] == "THU_TIEN":
-
-            noi_dung = row["ghi_chu"] or "Thu tiền"
-            khach_tra = f"{row['so_tien']:,.0f}"
-            tong_khach_tra += row["so_tien"]
-
-        else:
-            continue
-
-        data.append({
-            "Ngày": row["ngay"].strftime("%d/%m/%Y"),
-            "Nội dung": noi_dung,
-            "Khách nợ": khach_no,
-            "Mình nợ": minh_no,
-            "Khách trả": khach_tra
-        })
-
-    import pandas as pd
-
-    df = pd.DataFrame(data)
-    buffer = io.BytesIO()
-
-    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-        df.to_excel(
-            writer,
-            index=False,
-            sheet_name="Công nợ"
-        )
-
-    buffer.seek(0)
-
-    pdf = tao_pdf_cong_no(
-        df,
-        khach["ten"],
-        tong_khach_no,
-        tong_minh_no,
-        tong_khach_tra
-    )
-
-    st.dataframe(
-        df,
-        use_container_width=True,
-        hide_index=True
-    )
+    c1.write("**STT**")
+    c2.write("**Ngày**")
+    c3.write("**Số tiền**")
+    c4.write("**Ghi chú**")
 
     st.divider()
-    c1, c2 = st.columns(2)
 
-    with c1:
-        st.download_button(
-            "📄 Xuất PDF",
-            data=pdf,
-            file_name=f"Cong_no_{khach['ten']}.pdf",
-            mime="application/pdf",
-            use_container_width=True,
-            type="primary"
+    tong = 0
+
+    for i, row in enumerate(ds, start=1):
+
+        tong += row["so_tien"]
+
+        c1, c2, c3, c4 = st.columns([1,2,2,5])
+
+        c1.write(i)
+
+        c2.write(
+            row["ngay"].strftime("%d/%m/%Y")
         )
 
-    with c2:
-        st.download_button(
-            "📊 Xuất Excel",
-            data=buffer,
-            file_name=f"Cong_no_{khach['ten']}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True,
-            type="primary"
+        c3.write(
+            f"{row['so_tien']:,.0f}"
+        )
+
+        c4.write(
+            row["ghi_chu"] or ""
         )
 
     st.divider()
 
-    c1, c2, c3, c4 = st.columns(4)
-
-    c1.metric("Khách nợ", f"{tong_khach_no:,.0f}")
-    c2.metric("Mình nợ", f"{tong_minh_no:,.0f}")
-    c3.metric("Khách trả", f"{tong_khach_tra:,.0f}")
-    c4.metric(
-        "Còn nợ",
-        f"{tong_khach_no - tong_minh_no - tong_khach_tra:,.0f}"
+    st.metric(
+        "Đã thanh toán",
+        f"{tong:,.0f}"
     )
 
-@st.dialog("💵 Thu tiền")
-def dialog_thu_tien(khach):
 
-    st.write(f"**Khách hàng:** {khach['ten']}")
+@st.dialog("💵 Thanh toán")
+def dialog_thanh_toan(cong_no_id, loai):
 
-    ngay = st.date_input(
-        "Ngày",
-        value=date.today(),
-        format="DD/MM/YYYY",
-        key=f"ngay_thu_{khach['id']}"
-    )
+    phieu = lay_chi_tiet_cong_no(cong_no_id)
+
+    if loai == "THU":
+        st.subheader("💵 Thu tiền")
+    else:
+        st.subheader("💸 Trả tiền")
+        
+    st.write(f"Phiếu: {cong_no_id}")
+    st.write(f"**Số phiếu:** {phieu['so_phieu']}")
+    st.write(f"**Khách hàng:** {phieu['khach_hang']}")
+    st.write(f"**Còn lại:** {phieu['con_lai']:,.0f}")
+
+    st.divider()
+
+    ngay = st.date_input("Ngày")
 
     so_tien = st.number_input(
         "Số tiền",
         min_value=0.0,
         step=1000.0,
-        format="%.0f",
-        key=f"sotien_thu_{khach['id']}"
+        format="%.0f"
     )
 
-    ghi_chu = st.text_input(
-        "Ghi chú",
-        placeholder="Ví dụ: Chuyển khoản, tiền mặt...",
-        key=f"ghichu_thu_{khach['id']}"
-    )
+    ghi_chu = st.text_input("Ghi chú")
 
-    col1, col2 = st.columns(2)
+    if st.button("💾 Lưu", use_container_width=True):
+        
+        if so_tien <= 0:
+            st.warning("Nhập số tiền lớn hơn 0.")
+            st.stop()
 
-    with col1:
-        if st.button("💾 Lưu", use_container_width=True, type="primary"):
+        them_thanh_toan(
+            cong_no_id=cong_no_id,
+            ngay=str(ngay),
+            so_tien=so_tien,
+            ghi_chu=ghi_chu
+        )
 
-            if so_tien <= 0:
-                st.warning("Vui lòng nhập số tiền lớn hơn 0.")
-                st.stop()
+        st.success("Đã lưu.")
+        st.rerun()
 
-            them_phat_sinh_cong_no(
-                khach_hang_id=khach["id"],
-                ngay=str(ngay),
-                loai="THU_TIEN",
-                so_tien=so_tien,
-                ghi_chu=ghi_chu
-            )
-            st.success("Đã thu tiền thành công.")
-            st.rerun()
 
-    with col2:
-        st.button("Đóng", use_container_width=True)
+def tab_no_phai_thu():
 
-def show():
+    st.subheader("📥 Nợ phải thu")
 
-    st.header("💰 Công nợ khách hàng")
-
-    ds = lay_cong_no()
+    ds = lay_no_phai_thu()
 
     if not ds:
-        st.info("Chưa có dữ liệu.")
+        st.info("Không có dữ liệu.")
         return
 
-    # ===== Header =====
-    c1, c2, c3, c4, c5, c6, c7 = st.columns([4, 2, 2, 2, 2, 1, 1])
+    c1, c2, c3, c4, c5, c6, c7, c8, c9 = st.columns(
+        [1, 2, 2, 3, 2, 2, 2, 1, 1]
+    )
 
-    c1.write("**Khách hàng**")
-    c2.write("**Công sấy**")
-    c3.write("**Mua gỗ**")
-    c4.write("**Khách trả**")
-    c5.write("**Còn nợ**")
-    c6.write("👁")
-    c7.write("💵")
+    c1.write("**STT**")
+    c2.write("**Phiếu**")
+    c3.write("**Ngày**")
+    c4.write("**Khách hàng**")
+    c5.write("**Phải thu**")
+    c6.write("**Đã thu**")
+    c7.write("**Còn lại**")
+    c8.write("👁")
+    c9.write("💵")
 
     st.divider()
 
-    # ===== Danh sách =====
-    for row in ds:
+    tong_phai_thu = 0
+    tong_con_lai = 0
 
-        con_no = (
-            row["cong_say"]
-            - row["mua_go"]
-            - row["thu_tien"]
+    for i, row in enumerate(ds, start=1):
+
+        tong_phai_thu += row["so_tien"]
+        tong_con_lai += row["con_lai"]
+
+        c1, c2, c3, c4, c5, c6, c7, c8, c9 = st.columns(
+            [1, 2, 2, 3, 2, 2, 2, 1, 1]
         )
 
-        c1, c2, c3, c4, c5, c6, c7 = st.columns([4, 2, 2, 2, 2, 1, 1])
+        c1.write(i)
+
+        c2.write(row["so_phieu"] or "")
+
+        c3.write(
+            row["ngay"].strftime("%d/%m/%Y")
+            if row["ngay"] else ""
+        )
+
+        c4.write(row["khach_hang"])
+
+        c5.write(f"{row['so_tien']:,.0f}")
+
+        c6.write(f"{row['da_thanh_toan']:,.0f}")
+
+        if row["con_lai"] > 0:
+            c7.write(f"**{row['con_lai']:,.0f}**")
+        else:
+            c7.success("Đã thu")
+
+        if c8.button(
+            "👁",
+            key=f"xem_thu_{row['id']}"
+        ):
+            dialog_chi_tiet(row["id"])
+
+        if c9.button(
+            "💵",
+            key=f"thu_{row['id']}",
+            disabled=row["con_lai"] <= 0
+        ):
+            dialog_thanh_toan(
+                row["id"],
+                "THU"
+            )
+
+    st.divider()
+
+    c1, c2, c3 = st.columns(3)
+
+    c1.metric(
+        "Tổng phải thu",
+        f"{tong_phai_thu:,.0f}"
+    )
+
+    c2.metric(
+        "Đã thu",
+        f"{tong_phai_thu - tong_con_lai:,.0f}"
+    )
+
+    c3.metric(
+        "Còn phải thu",
+        f"{tong_con_lai:,.0f}"
+    )
+
+def tab_no_phai_tra():
+
+    st.subheader("📤 Nợ phải trả")
+
+    ds = lay_no_phai_tra()
+
+    if not ds:
+        st.info("Không có dữ liệu.")
+        return
+
+    c1, c2, c3, c4, c5, c6, c7, c8, c9 = st.columns(
+        [1, 2, 2, 3, 2, 2, 2, 1, 1]
+    )
+
+    c1.write("**STT**")
+    c2.write("**Phiếu**")
+    c3.write("**Ngày**")
+    c4.write("**Khách hàng**")
+    c5.write("**Phải trả**")
+    c6.write("**Đã trả**")
+    c7.write("**Còn lại**")
+    c8.write("👁")
+    c9.write("💸")
+
+    st.divider()
+
+    tong_phai_tra = 0
+    tong_con_lai = 0
+
+    for i, row in enumerate(ds, start=1):
+
+        tong_phai_tra += row["so_tien"]
+        tong_con_lai += row["con_lai"]
+
+        c1, c2, c3, c4, c5, c6, c7, c8, c9 = st.columns(
+            [1, 2, 2, 3, 2, 2, 2, 1, 1]
+        )
+
+        c1.write(i)
+
+        c2.write(row["so_phieu"] or "")
+
+        c3.write(
+            row["ngay"].strftime("%d/%m/%Y")
+            if row["ngay"] else ""
+        )
+
+        c4.write(row["khach_hang"])
+
+        c5.write(f"{row['so_tien']:,.0f}")
+
+        c6.write(f"{row['da_thanh_toan']:,.0f}")
+
+        if row["con_lai"] > 0:
+            c7.write(f"**{row['con_lai']:,.0f}**")
+        else:
+            c7.success("Đã trả")
+
+        if c8.button(
+            "👁",
+            key=f"xem_tra_{row['id']}"
+        ):
+            dialog_chi_tiet(row["id"])
+
+        if c9.button(
+            "💸",
+            key=f"tra_{row['id']}",
+            disabled=row["con_lai"] <= 0
+        ):
+            dialog_thanh_toan(
+                row["id"],
+                "TRA"
+            )
+
+    st.divider()
+
+    c1, c2, c3 = st.columns(3)
+
+    c1.metric(
+        "Tổng phải trả",
+        f"{tong_phai_tra:,.0f}"
+    )
+
+    c2.metric(
+        "Đã trả",
+        f"{tong_phai_tra - tong_con_lai:,.0f}"
+    )
+
+    c3.metric(
+        "Còn phải trả",
+        f"{tong_con_lai:,.0f}"
+    )
+
+
+def tab_tong_hop():
+
+    st.subheader("📊 Tổng hợp")
+
+    ds = lay_tong_hop_cong_no()
+
+    if not ds:
+        st.info("Không có dữ liệu.")
+        return
+
+    c1, c2, c3, c4 = st.columns([4,2,2,2])
+
+    c1.write("**Khách hàng**")
+    c2.write("**Phải thu**")
+    c3.write("**Phải trả**")
+    c4.write("**Chênh lệch**")
+
+    st.divider()
+
+    tong_thu = 0
+    tong_tra = 0
+    tong_chenh = 0
+
+    for row in ds:
+
+        tong_thu += row["no_phai_thu"]
+        tong_tra += row["no_phai_tra"]
+        tong_chenh += row["chenh_lech"]
+
+        c1, c2, c3, c4 = st.columns([4,2,2,2])
 
         c1.write(row["ten"])
-        c2.write(f'{row["cong_say"]:,.0f}')
-        c3.write(f'{row["mua_go"]:,.0f}')
-        c4.write(f'{row["thu_tien"]:,.0f}')
-        c5.write(f'**{con_no:,.0f}**')
+        c2.write(f"{row['no_phai_thu']:,.0f}")
+        c3.write(f"{row['no_phai_tra']:,.0f}")
+        c4.write(f"**{row['chenh_lech']:,.0f}**")
 
-        if c6.button("👁", key=f"xem_{row['id']}"):
-            dialog_lich_su(row)
+    st.divider()
 
-        if c7.button("💵", key=f"thu_{row['id']}"):
-            dialog_thu_tien(row)
+    c1, c2, c3 = st.columns(3)
+
+    c1.metric(
+        "Tổng phải thu",
+        f"{tong_thu:,.0f}"
+    )
+
+    c2.metric(
+        "Tổng phải trả",
+        f"{tong_tra:,.0f}"
+    )
+
+    c3.metric(
+        "Chênh lệch",
+        f"{tong_chenh:,.0f}"
+    )
+
+
+def show():
+
+    st.header("💰 Thanh toán")
+
+    tab1, tab2, tab3 = st.tabs([
+        "📥 Nợ phải thu",
+        "📤 Nợ phải trả",
+        "📊 Tổng hợp"
+    ])
+
+    with tab1:
+        tab_no_phai_thu()
+
+    with tab2:
+        tab_no_phai_tra()
+
+    with tab3:
+        tab_tong_hop()
