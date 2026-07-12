@@ -150,6 +150,14 @@ def dialog_chi_tiet(cong_no_id):
     c9.write("")
     c10.write(f"**{phieu['con_lai']:,.0f}**")
 
+@st.dialog("📊 Chi tiết tổng hợp", width="large")
+def dialog_tong_hop(khach_hang_id):
+
+    st.subheader("📊 Chi tiết tổng hợp")
+
+    st.write(f"Khách hàng ID: {khach_hang_id}")
+
+    st.info("Không biết ghi gì chị Bình ạ!!!!!!@@@@@@...")
 
 @st.dialog("💵 Thanh toán")
 def dialog_thanh_toan(cong_no_id, loai):
@@ -393,12 +401,13 @@ def tab_tong_hop():
         st.info("Không có dữ liệu.")
         return
 
-    c1, c2, c3, c4 = st.columns([4,2,2,2])
+    c1, c2, c3, c4, c5 = st.columns([3,2,2,2,1])
 
     c1.write("**Khách hàng**")
     c2.write("**Phải thu**")
     c3.write("**Phải trả**")
     c4.write("**Chênh lệch**")
+    c5.write("👁")
 
     st.divider()
 
@@ -412,12 +421,17 @@ def tab_tong_hop():
         tong_tra += row["no_phai_tra"]
         tong_chenh += row["chenh_lech"]
 
-        c1, c2, c3, c4 = st.columns([4,2,2,2])
+        c1, c2, c3, c4, c5 = st.columns([3,2,2,2,1])
 
         c1.write(row["ten"])
         c2.write(f"{row['no_phai_thu']:,.0f}")
         c3.write(f"{row['no_phai_tra']:,.0f}")
         c4.write(f"**{row['chenh_lech']:,.0f}**")
+        if c5.button(
+            "👁",
+            key=f"xem_tonghop_{row['id']}"
+        ):
+            dialog_tong_hop(row["id"])
 
     st.divider()
 

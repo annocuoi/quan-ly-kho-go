@@ -2996,7 +2996,8 @@ def lay_tong_hop_cong_no():
                 SUM(
                     CASE
                         WHEN cn.loai='CONG_SAY'
-                        THEN cn.so_tien
+                        THEN cn.so_tien - COALESCE(tt.da_thanh_toan,0)
+                        ELSE 0
                     END
                 ),0
             ) AS no_phai_thu,
@@ -3005,7 +3006,8 @@ def lay_tong_hop_cong_no():
                 SUM(
                     CASE
                         WHEN cn.loai='MUA_GO'
-                        THEN cn.so_tien
+                        THEN cn.so_tien - COALESCE(tt.da_thanh_toan,0)
+                        ELSE 0
                     END
                 ),0
             ) AS no_phai_tra,
@@ -3014,7 +3016,8 @@ def lay_tong_hop_cong_no():
                 SUM(
                     CASE
                         WHEN cn.loai='CONG_SAY'
-                        THEN cn.so_tien
+                        THEN cn.so_tien - COALESCE(tt.da_thanh_toan,0)
+                        ELSE 0
                     END
                 ),0
             )
@@ -3023,7 +3026,8 @@ def lay_tong_hop_cong_no():
                 SUM(
                     CASE
                         WHEN cn.loai='MUA_GO'
-                        THEN cn.so_tien
+                        THEN cn.so_tien - COALESCE(tt.da_thanh_toan,0)
+                        ELSE 0
                     END
                 ),0
             ) AS chenh_lech
@@ -3031,7 +3035,16 @@ def lay_tong_hop_cong_no():
         FROM khach_hang kh
 
         LEFT JOIN cong_no cn
-            ON kh.id=cn.khach_hang_id
+            ON kh.id = cn.khach_hang_id
+
+        LEFT JOIN (
+            SELECT
+                cong_no_id,
+                SUM(so_tien) AS da_thanh_toan
+            FROM thanh_toan
+            GROUP BY cong_no_id
+        ) tt
+            ON cn.id = tt.cong_no_id
 
         GROUP BY
             kh.id,
@@ -3039,7 +3052,6 @@ def lay_tong_hop_cong_no():
 
         ORDER BY
             kh.ten
-
     """)
 
     data = cur.fetchall()
