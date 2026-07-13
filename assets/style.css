@@ -1,0 +1,53 @@
+/* Nút nhóm lớn - Nổi bật hơn */
+.stSidebar div.stButton > button.btn-group-lon {
+    background-color: #FFE3E8 !important;
+    color: #6C2237 !important;
+    border: 2px solid #FFC2D1 !important;
+    font-size: 16px !important;
+    text-align: left !important;
+}
+
+/* Nút con khi xổ ra - Nhỏ hơn và thụt lề */
+div.sidebar-sub-menu div.stButton > button {
+    background-color: #FFF0F3 !important;
+    color: #8C2F48 !important;
+    border: 1px dashed #FFC2D1 !important;
+    font-size: 14px !important;
+    padding-left: 25px !important; /* Thụt vào trong */
+    text-align: left !important;
+}
+
+/* Hiệu ứng khi chọn đúng trang con */
+div.sidebar-sub-menu div.stButton > button.btn-active {
+    background-color: #FF85A2 !important;
+    color: white !important;
+    border: 1px solid #FF85A2 !important;
+}
+
+/* ==========================================
+   ẨN BIỂU TƯỢNG LINK CẠNH TIÊU ĐỀ STREAMLIT
+========================================== */
+
+/* Streamlit mới */
+[data-testid="stHeaderActionElements"]{
+    display: none !important;
+}
+
+/* Một số phiên bản Streamlit khác */
+.stHeadingActionElements{
+    display: none !important;
+}
+
+.stHeadingAnchor{
+    display: none !important;
+}
+
+/* Dự phòng */
+h1 a,
+h2 a,
+h3 a,
+h4 a,
+h5 a,
+h6 a{
+    display:none !important;
+} 

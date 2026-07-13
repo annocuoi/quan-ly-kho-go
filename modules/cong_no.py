@@ -7,7 +7,8 @@ from database.db import (
     them_thanh_toan,
     lay_ds_thanh_toan,
     lay_chi_tiet_cong_no,
-    lay_chi_tiet_phieu_cong_no
+    lay_chi_tiet_phieu_cong_no,
+    lay_chi_tiet_tong_hop,
 )
 
 
@@ -153,12 +154,90 @@ def dialog_chi_tiet(cong_no_id):
 @st.dialog("📊 Chi tiết tổng hợp", width="large")
 def dialog_tong_hop(khach_hang_id):
 
-    st.subheader("📊 Chi tiết tổng hợp")
+    ds = lay_chi_tiet_tong_hop(khach_hang_id)
 
-    st.write(f"Khách hàng ID: {khach_hang_id}")
+    if not ds:
+        st.info("Không có dữ liệu.")
+        return
 
-    st.info("Không biết ghi gì chị Bình ạ!!!!!!@@@@@@...")
+    st.subheader("📥 Nợ phải thu")
 
+    tong_thu = 0
+
+    for row in ds:
+
+        if row["loai"] != "CONG_SAY":
+            continue
+
+        tong_thu += row["con_lai"]
+
+        c1, c2, c3, c4 = st.columns([1,2,2,2])
+
+        if c1.button(
+            "👁",
+            key=f"tonghop_thu_{row['id']}"
+        ):
+            st.session_state.mo_chi_tiet = row["id"]
+            st.rerun()
+
+        c2.write(f"Phiếu {row['so_phieu']}")
+
+        c3.write(
+            row["ngay"].strftime("%d/%m/%Y")
+        )
+
+        c4.write(f"{row['con_lai']:,.0f}")
+
+    st.divider()
+
+    c1, c2 = st.columns([6,2])
+
+    c1.write("**Tổng phải thu**")
+    c2.write(f"**{tong_thu:,.0f}**")
+
+    st.divider()
+
+    st.subheader("📤 Nợ phải trả")
+
+    tong_tra = 0
+
+    for row in ds:
+
+        if row["loai"] != "MUA_GO":
+            continue
+
+        tong_tra += row["con_lai"]
+
+        c1, c2, c3, c4 = st.columns([1,2,2,2])
+
+        if c1.button(
+            "👁",
+            key=f"tonghop_tra_{row['id']}"
+        ):
+            st.session_state.mo_chi_tiet = row["id"]
+            st.rerun()
+
+        c2.write(f"Phiếu {row['so_phieu']}")
+
+        c3.write(
+            row["ngay"].strftime("%d/%m/%Y")
+        )
+
+        c4.write(f"{row['con_lai']:,.0f}")
+
+    st.divider()
+
+    c1, c2 = st.columns([6,2])
+
+    c1.write("**Tổng phải trả**")
+    c2.write(f"**{tong_tra:,.0f}**")
+
+    st.divider()
+
+    c1, c2 = st.columns([6,2])
+
+    c1.write("**Chênh lệch**")
+    c2.write(f"**{tong_thu - tong_tra:,.0f}**")
 @st.dialog("💵 Thanh toán")
 def dialog_thanh_toan(cong_no_id, loai):
 
@@ -471,3 +550,9 @@ def show():
 
     with tab3:
         tab_tong_hop()
+
+    if "mo_chi_tiet" in st.session_state:
+
+        cong_no_id = st.session_state.pop("mo_chi_tiet")
+
+        dialog_chi_tiet(cong_no_id)

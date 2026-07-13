@@ -3169,3 +3169,58 @@ def lay_chi_tiet_phieu_cong_no(cong_no_id):
     close_connection(conn)
 
     return data
+
+def lay_chi_tiet_tong_hop(khach_hang_id):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT
+
+            cn.id,
+
+            cn.loai,
+
+            pn.so_phieu,
+
+            cn.ngay,
+
+            cn.so_tien,
+
+            COALESCE(SUM(tt.so_tien),0) AS da_thanh_toan,
+
+            cn.so_tien
+            - COALESCE(SUM(tt.so_tien),0) AS con_lai
+
+        FROM cong_no cn
+
+        LEFT JOIN phieu_nhap pn
+            ON cn.phieu_nhap_id = pn.id
+
+        LEFT JOIN thanh_toan tt
+            ON cn.id = tt.cong_no_id
+
+        WHERE cn.khach_hang_id=%s
+
+        GROUP BY
+
+            cn.id,
+            cn.loai,
+            pn.so_phieu,
+            cn.ngay,
+            cn.so_tien
+
+        ORDER BY
+
+            cn.loai,
+            cn.ngay,
+            pn.so_phieu
+
+    """, (khach_hang_id,))
+
+    data = cur.fetchall()
+
+    close_connection(conn)
+
+    return data
