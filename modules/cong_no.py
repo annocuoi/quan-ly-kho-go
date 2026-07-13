@@ -1,5 +1,8 @@
 import streamlit as st
 from datetime import date
+import io
+import pandas as pd
+
 
 from database.db import (
     lay_no_phai_thu,
@@ -9,9 +12,13 @@ from database.db import (
     lay_ds_thanh_toan,
     lay_chi_tiet_cong_no,
     lay_chi_tiet_phieu_cong_no,
-    lay_chi_tiet_tong_hop,
+    lay_chi_tiet_tong_hop,  
     lay_ds_khach_hang
 )
+from utils.pdf_no_phai_thu import tao_pdf_no_phai_thu
+from utils.pdf_no_phai_tra import tao_pdf_no_phai_tra
+from utils.pdf_tong_hop_cong_no import tao_pdf_tong_hop_cong_no
+from utils.pdf_chi_tiet_cong_no import tao_pdf_chi_tiet_cong_no
 
 
 @st.dialog("📄 Chi tiết phiếu", width="large")
@@ -20,9 +27,26 @@ def dialog_chi_tiet(cong_no_id):
     phieu = lay_chi_tiet_cong_no(cong_no_id)
     ds_go = lay_chi_tiet_phieu_cong_no(cong_no_id)
     ds_tt = lay_ds_thanh_toan(cong_no_id)
+    pdf = tao_pdf_chi_tiet_cong_no(
+        phieu,
+        ds_go,
+        ds_tt,
+    )
 
-    st.subheader(f"📄 Phiếu {phieu['so_phieu']}")
+    c1, c2 = st.columns([8, 2])
 
+    with c1:
+        st.subheader(f"📄 Phiếu {phieu['so_phieu']}")
+
+    with c2:
+        st.download_button(
+            "📄 Xuất PDF",
+            data=pdf,
+            file_name=f"Chi_tiet_{phieu['so_phieu']}.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+            type="primary",
+        )
     c1, c2, c3 = st.columns(3)
 
     c1.write(f"**Khách hàng:** {phieu['khach_hang']}")
@@ -353,6 +377,55 @@ def tab_no_phai_thu():
     if not ds:
         st.info("Không có dữ liệu.")
         return
+    
+    df = pd.DataFrame([
+        {
+            "STT": i,
+            "Phiếu": row["so_phieu"],
+            "Ngày": row["ngay"].strftime("%d/%m/%Y") if row["ngay"] else "",
+            "Khách hàng": row["khach_hang"],
+            "Phải thu": row["so_tien"],
+            "Đã thu": row["da_thanh_toan"],
+            "Còn lại": row["con_lai"],
+        }
+        for i, row in enumerate(ds, start=1)
+    ])
+
+    pdf = tao_pdf_no_phai_thu(
+        df,
+        tu_ngay,
+        den_ngay,
+        khach_chon
+    )
+
+    buffer = io.BytesIO()
+
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="No phai thu")
+
+    buffer.seek(0)
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+        st.download_button(
+            "📄 Xuất PDF",
+            data=pdf,
+            file_name="No_phai_thu.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+            type="primary",
+        )
+
+    with c2:
+        st.download_button(
+            "📊 Xuất Excel",
+            data=buffer,
+            file_name="No_phai_thu.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+            type="primary",
+        )
 
     c1, c2, c3, c4, c5, c6, c7, c8, c9 = st.columns(
         [1, 2, 2, 3, 2, 2, 2, 1, 1]
@@ -510,6 +583,56 @@ def tab_no_phai_tra():
         st.info("Không có dữ liệu.")
         return
 
+    df = pd.DataFrame([
+        {
+            "STT": i,
+            "Phiếu": row["so_phieu"],
+            "Ngày": row["ngay"].strftime("%d/%m/%Y") if row["ngay"] else "",
+            "Khách hàng": row["khach_hang"],
+            "Phải trả": row["so_tien"],
+            "Đã trả": row["da_thanh_toan"],
+            "Còn lại": row["con_lai"],
+        }
+        for i, row in enumerate(ds, start=1)
+    ])
+
+    pdf = tao_pdf_no_phai_tra(
+        df,
+        tu_ngay,
+        den_ngay,
+        khach_chon
+    )
+
+    buffer = io.BytesIO()
+
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="No phai tra")
+
+    buffer.seek(0)
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+        st.download_button(
+            "📄 Xuất PDF",
+            data=pdf,
+            file_name="No_phai_tra.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+            type="primary",
+        )
+
+    with c2:
+        st.download_button(
+            "📊 Xuất Excel",
+            data=buffer,
+            file_name="No_phai_tra.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+            type="primary",
+        )
+
+
     c1, c2, c3, c4, c5, c6, c7, c8, c9 = st.columns(
         [1, 2, 2, 3, 2, 2, 2, 1, 1]
     )
@@ -604,6 +727,47 @@ def tab_tong_hop():
         st.info("Không có dữ liệu.")
         return
 
+    df = pd.DataFrame([
+        {
+            "STT": i,
+            "Khách hàng": row["ten"],
+            "Phải thu": row["no_phai_thu"],
+            "Phải trả": row["no_phai_tra"],
+            "Chênh lệch": row["chenh_lech"],
+        }
+        for i, row in enumerate(ds, start=1)
+    ])
+
+    pdf = tao_pdf_tong_hop_cong_no(df)
+    buffer = io.BytesIO()
+
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="Tong hop")
+
+    buffer.seek(0)
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+        st.download_button(
+            "📄 Xuất PDF",
+            pdf,
+            "Tong_hop_cong_no.pdf",
+            "application/pdf",
+            use_container_width=True,
+            type="primary",
+        )
+
+    with c2:
+        st.download_button(
+            "📊 Xuất Excel",
+            buffer,
+            "Tong_hop_cong_no.xlsx",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+            type="primary",
+        )
+    
     c1, c2, c3, c4, c5 = st.columns([3,2,2,2,1])
 
     c1.write("**Khách hàng**")
