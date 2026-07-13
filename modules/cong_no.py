@@ -1,4 +1,5 @@
 import streamlit as st
+from datetime import date
 
 from database.db import (
     lay_no_phai_thu,
@@ -9,6 +10,7 @@ from database.db import (
     lay_chi_tiet_cong_no,
     lay_chi_tiet_phieu_cong_no,
     lay_chi_tiet_tong_hop,
+    lay_ds_khach_hang
 )
 
 
@@ -286,8 +288,67 @@ def dialog_thanh_toan(cong_no_id, loai):
 def tab_no_phai_thu():
 
     st.subheader("📥 Nợ phải thu")
+    # ==========================
+    # Hàng 1: Từ ngày - Đến ngày
+    # ==========================
 
-    ds = lay_no_phai_thu()
+    col1, col2 = st.columns(2)
+
+    with col1:
+        tu_ngay = st.date_input(
+            "📅 Từ ngày",
+            value=date.today().replace(day=1),
+            format="DD/MM/YYYY"
+        )
+
+    with col2:
+        den_ngay = st.date_input(
+            "📅 Đến ngày",
+            value=date.today(),
+            format="DD/MM/YYYY"
+        )
+
+    # ==========================
+    # Hàng 2: Khách hàng
+    # ==========================
+
+    
+    col1, col2 = st.columns([2,3])
+
+    with col1:
+        ds_khach = ["Tất cả"] + [kh["ten"] for kh in lay_ds_khach_hang()]
+        khach_chon = st.selectbox(
+            "👤 Khách hàng",
+            ds_khach
+        )
+
+    with col2:
+        tu_khoa = st.text_input(
+            "🔍 Tìm kiếm",
+            placeholder="Phiếu, khách hàng, số tiền..."
+        )
+
+    st.divider()
+
+    ds = lay_no_phai_thu(
+        khach_hang=None if khach_chon == "Tất cả" else khach_chon,
+        tu_ngay=tu_ngay,
+        den_ngay=den_ngay
+    )
+    if tu_khoa:
+
+        tk = tu_khoa.replace(",", "").strip().lower()
+
+        ds = [
+            row for row in ds
+            if (
+                tk in str(row["so_phieu"]).lower()
+                or tk in row["khach_hang"].lower()
+                or tk in str(int(row["so_tien"]))
+                or tk in str(int(row["da_thanh_toan"]))
+                or tk in str(int(row["con_lai"]))
+            )
+        ]
 
     if not ds:
         st.info("Không có dữ liệu.")
@@ -379,8 +440,71 @@ def tab_no_phai_thu():
 def tab_no_phai_tra():
 
     st.subheader("📤 Nợ phải trả")
+    # ==========================
+    # Hàng 1: Từ ngày - Đến ngày
+    # ==========================
 
-    ds = lay_no_phai_tra()
+    col1, col2 = st.columns(2)
+
+    with col1:
+        tu_ngay = st.date_input(
+            "📅 Từ ngày",
+            value=date.today().replace(day=1),
+            format="DD/MM/YYYY",
+            key="tra_tu_ngay"
+        )
+
+    with col2:
+        den_ngay = st.date_input(
+            "📅 Đến ngày",
+            value=date.today(),
+            format="DD/MM/YYYY",
+            key="tra_den_ngay"
+        )
+
+    # ==========================
+    # Hàng 2
+    # ==========================
+
+    col1, col2 = st.columns([1, 2])
+
+    with col1:
+        ds_khach = ["Tất cả"] + [kh["ten"] for kh in lay_ds_khach_hang()]
+
+        khach_chon = st.selectbox(
+            "👤 Khách hàng",
+            ds_khach,
+            key="tra_khach_hang"
+        )
+
+    with col2:
+        tu_khoa = st.text_input(
+            "🔍 Tìm kiếm",
+            placeholder="Phiếu, khách hàng, số tiền...",
+            key="tra_tim_kiem"
+        )
+
+    st.divider()
+
+    ds = lay_no_phai_tra(
+        khach_hang=None if khach_chon == "Tất cả" else khach_chon,
+        tu_ngay=tu_ngay,
+        den_ngay=den_ngay
+    )
+    if tu_khoa:
+
+        tk = tu_khoa.replace(",", "").strip().lower()
+
+        ds = [
+            row for row in ds
+            if (
+                tk in str(row["so_phieu"]).lower()
+                or tk in row["khach_hang"].lower()
+                or tk in str(int(row["so_tien"]))
+                or tk in str(int(row["da_thanh_toan"]))
+                or tk in str(int(row["con_lai"]))
+            )
+        ]
 
     if not ds:
         st.info("Không có dữ liệu.")

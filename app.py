@@ -47,8 +47,8 @@ except:
 # THANH MENU SIDEBAR XỔ PHÂN CẤP
 # ==========================
 with st.sidebar:
-    st.markdown("<h1 style='margin-bottom: 0;'> MUỐN GHI CÁI GÌ GHI </h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #8C2F48; font-size: 0.9em;'> 123 Chẳng hạn </p>", unsafe_allow_html=True)
+    st.markdown("<h1 style='margin-bottom: 0;'>Phan Bình</h1>", unsafe_allow_html=True)
+    #st.markdown("<p style='text-align: center; color: #8C2F48; font-size: 0.9em;'>1</p>", unsafe_allow_html=True)
     st.divider()
 
 

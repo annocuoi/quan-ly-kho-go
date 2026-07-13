@@ -2603,12 +2603,16 @@ def xoa_cong_no(phieu_nhap_id):
     conn.commit()
     close_connection(conn)
 
-def lay_no_phai_thu():
+def lay_no_phai_thu(
+    khach_hang=None,
+    tu_ngay=None,
+    den_ngay=None
+):
 
     conn = get_connection()
     cur = conn.cursor()
 
-    cur.execute("""
+    sql = """
         SELECT
 
             cn.id,
@@ -2644,6 +2648,23 @@ def lay_no_phai_thu():
             ON cn.id = tt.cong_no_id
 
         WHERE cn.loai = 'CONG_SAY'
+    """
+
+    params = []
+
+    if khach_hang:
+        sql += " AND kh.ten = %s"
+        params.append(khach_hang)
+
+    if tu_ngay:
+        sql += " AND DATE(cn.ngay) >= %s"
+        params.append(tu_ngay)
+
+    if den_ngay:
+        sql += " AND DATE(cn.ngay) <= %s"
+        params.append(den_ngay)
+
+    sql += """
 
         GROUP BY
 
@@ -2653,12 +2674,17 @@ def lay_no_phai_thu():
             kh.ten,
             cn.so_tien
 
+    """
+    sql += """
+
         ORDER BY
 
             cn.ngay,
             pn.so_phieu
 
-    """)
+    """
+
+    cur.execute(sql, params)
 
     data = cur.fetchall()
 
@@ -2918,12 +2944,16 @@ def lay_ds_thanh_toan(cong_no_id):
 
     return ds
 
-def lay_no_phai_tra():
+def lay_no_phai_tra(
+    khach_hang=None,
+    tu_ngay=None,
+    den_ngay=None
+):
 
     conn = get_connection()
     cur = conn.cursor()
 
-    cur.execute("""
+    sql = """
         SELECT
 
             cn.id,
@@ -2959,6 +2989,23 @@ def lay_no_phai_tra():
             ON cn.id = tt.cong_no_id
 
         WHERE cn.loai = 'MUA_GO'
+    """
+
+    params = []
+
+    if khach_hang:
+        sql += " AND kh.ten = %s"
+        params.append(khach_hang)
+
+    if tu_ngay:
+        sql += " AND DATE(cn.ngay) >= %s"
+        params.append(tu_ngay)
+
+    if den_ngay:
+        sql += " AND DATE(cn.ngay) <= %s"
+        params.append(den_ngay)
+
+    sql += """
 
         GROUP BY
 
@@ -2973,7 +3020,9 @@ def lay_no_phai_tra():
             cn.ngay,
             pn.so_phieu
 
-    """)
+    """
+
+    cur.execute(sql, params)
 
     data = cur.fetchall()
 
