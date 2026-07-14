@@ -337,6 +337,54 @@ def tao_database():
         )
     """)
 
+    # =========================
+    # PHIẾU XUẤT
+    # =========================
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS phieu_xuat(
+
+            id SERIAL PRIMARY KEY,
+
+            so_phieu INTEGER UNIQUE NOT NULL,
+
+            khach_hang_id INTEGER NOT NULL,
+
+            ngay TIMESTAMP DEFAULT NOW(),
+
+            ghi_chu TEXT,
+
+            FOREIGN KEY(khach_hang_id)
+                REFERENCES khach_hang(id)
+
+        )
+    """)
+
+    # =========================
+    # CHI TIẾT PHIẾU XUẤT
+    # =========================
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS chi_tiet_phieu_xuat(
+
+            id SERIAL PRIMARY KEY,
+
+            phieu_xuat_id INTEGER NOT NULL,
+
+            kho_phan_loai_id INTEGER NOT NULL,
+
+            so_luong DOUBLE PRECISION NOT NULL,
+
+            so_thanh INTEGER NOT NULL,
+
+            FOREIGN KEY(phieu_xuat_id)
+                REFERENCES phieu_xuat(id)
+                ON DELETE CASCADE,
+
+            FOREIGN KEY(kho_phan_loai_id)
+                REFERENCES kho_phan_loai(id)
+
+        )
+    """)
+
     conn.commit()
     close_connection(conn)
 
@@ -3303,3 +3351,296 @@ def lay_chi_tiet_tong_hop(khach_hang_id):
     close_connection(conn)
 
     return data
+
+def lay_so_phieu_xuat_moi():
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT COALESCE(MAX(so_phieu),0)+1 AS so_phieu
+        FROM phieu_xuat
+    """)
+
+    so = cur.fetchone()["so_phieu"]
+
+    close_connection(conn)
+
+    return so
+
+def luu_phieu_xuat(
+    so_phieu,
+    ngay,
+    khach_hang_id,
+    ghi_chu,
+    ds_hang
+):
+
+    if not ds_hang:
+        raise Exception("Phiếu xuất chưa có mặt hàng.")
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    try:
+
+        # ==========================
+        # Tạo phiếu xuất
+        # ==========================
+        cur.execute("""
+            INSERT INTO phieu_xuat(
+                so_phieu,
+                ngay,
+                khach_hang_id,
+                ghi_chu
+            )
+            VALUES(%s,%s,%s,%s)
+            RETURNING id
+        """, (
+            so_phieu,
+            ngay,
+            khach_hang_id,
+            ghi_chu
+        ))
+
+        phieu_xuat_id = cur.fetchone()["id"]
+
+        # ==========================
+        # Chi tiết xuất
+        # ==========================
+        for item in ds_hang:
+
+            cur.execute("""
+                SELECT
+                    so_luong,
+                    so_thanh
+                FROM kho_phan_loai
+                WHERE id=%s
+                FOR UPDATE
+            """, (item["kho_phan_loai_id"],))
+
+            kho = cur.fetchone()
+
+            if kho is None:
+                raise Exception("Không tìm thấy lô gỗ.")
+
+            # Không cho xuất âm
+            if item["so_luong"] <= 0:
+                raise Exception("Số lượng xuất không hợp lệ.")
+
+            if item["so_thanh"] < 0:
+                raise Exception("Số thanh xuất không hợp lệ.")
+
+            # Kiểm tra tồn
+            if item["so_luong"] > kho["so_luong"]:
+                raise Exception("Số lượng xuất vượt tồn kho.")
+
+            if kho["so_thanh"] is not None:
+                if item["so_thanh"] > kho["so_thanh"]:
+                    raise Exception("Số thanh xuất vượt tồn kho.")
+
+            # Ghi chi tiết phiếu xuất
+            cur.execute("""
+                INSERT INTO chi_tiet_phieu_xuat(
+                    phieu_xuat_id,
+                    kho_phan_loai_id,
+                    so_luong,
+                    so_thanh
+                )
+                VALUES(%s,%s,%s,%s)
+            """, (
+                phieu_xuat_id,
+                item["kho_phan_loai_id"],
+                item["so_luong"],
+                item["so_thanh"]
+            ))
+
+            # Trừ tồn
+            cur.execute("""
+                UPDATE kho_phan_loai
+                SET
+                    so_luong = so_luong - %s,
+                    so_thanh = CASE
+                        WHEN so_thanh IS NULL
+                        THEN NULL
+                        ELSE so_thanh - %s
+                    END
+                WHERE id=%s
+            """, (
+                item["so_luong"],
+                item["so_thanh"],
+                item["kho_phan_loai_id"]
+            ))
+            # Nếu lô đã hết thì xóa khỏi kho
+            cur.execute("""
+                SELECT
+                    so_luong,
+                    so_thanh
+                FROM kho_phan_loai
+                WHERE id=%s
+            """, (item["kho_phan_loai_id"],))
+
+            ton = cur.fetchone()
+
+            if ton:
+
+                # Gỗ tính theo m3
+                if ton["so_thanh"] is not None:
+
+                    if ton["so_thanh"] <= 0:
+                        cur.execute("""
+                            DELETE FROM kho_phan_loai
+                            WHERE id=%s
+                        """, (item["kho_phan_loai_id"],))
+
+                # Gỗ tính theo kg
+                else:
+
+                    if ton["so_luong"] <= 0:
+                        cur.execute("""
+                            DELETE FROM kho_phan_loai
+                            WHERE id=%s
+                        """, (item["kho_phan_loai_id"],))
+
+        conn.commit()
+
+    except Exception:
+
+        conn.rollback()
+        raise
+
+    finally:
+
+        close_connection(conn)
+
+def lay_ds_phieu_xuat(
+    tu_ngay=None,
+    den_ngay=None,
+    khach_hang_id=None
+):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    sql = """
+        SELECT
+
+            px.id,
+
+            px.so_phieu,
+
+            px.ngay,
+
+            kh.ten AS khach_hang,
+
+            COUNT(ctx.id) AS so_mat_hang
+
+        FROM phieu_xuat px
+
+        JOIN khach_hang kh
+            ON px.khach_hang_id = kh.id
+
+        LEFT JOIN chi_tiet_phieu_xuat ctx
+            ON px.id = ctx.phieu_xuat_id
+
+        WHERE 1=1
+    """
+
+    params = []
+
+    if tu_ngay is not None:
+        sql += " AND DATE(px.ngay) >= %s"
+        params.append(tu_ngay)
+
+    if den_ngay is not None:
+        sql += " AND DATE(px.ngay) <= %s"
+        params.append(den_ngay)
+
+    if khach_hang_id is not None:
+        sql += " AND px.khach_hang_id=%s"
+        params.append(khach_hang_id)
+
+    sql += """
+
+        GROUP BY
+
+            px.id,
+            px.so_phieu,
+            px.ngay,
+            kh.ten
+
+        ORDER BY
+
+            px.ngay DESC,
+            px.so_phieu DESC
+
+    """
+
+    cur.execute(sql, tuple(params))
+
+    ds = cur.fetchall()
+
+    close_connection(conn)
+
+    return ds
+
+def lay_chi_tiet_phieu_xuat(phieu_xuat_id):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+
+        SELECT
+
+            ctx.id,
+
+            lg.ten,
+
+            lg.kieu_tinh,
+
+            kp.day,
+            kp.rong,
+            kp.dai,
+
+            pl.ten AS phan_loai,
+
+            ctx.so_thanh,
+
+            CASE
+                WHEN lg.kieu_tinh='TRONG_LUONG'
+                THEN ctx.so_luong
+                ELSE NULL
+            END AS kg,
+
+            CASE
+                WHEN lg.kieu_tinh='M3'
+                THEN ctx.so_luong
+                ELSE NULL
+            END AS m3
+
+        FROM chi_tiet_phieu_xuat ctx
+
+        JOIN kho_phan_loai kp
+            ON ctx.kho_phan_loai_id = kp.id
+
+        JOIN chi_tiet_phieu_nhap ct
+            ON kp.chi_tiet_phieu_nhap_id = ct.id
+
+        JOIN loai_go lg
+            ON ct.loai_go_id = lg.id
+
+        JOIN phan_loai_go pl
+            ON kp.phan_loai_go_id = pl.id
+
+        WHERE ctx.phieu_xuat_id=%s
+
+        ORDER BY ctx.id
+
+    """, (phieu_xuat_id,))
+
+    ds = cur.fetchall()
+
+    close_connection(conn)
+
+    return ds
