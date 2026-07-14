@@ -390,7 +390,6 @@ def tab_no_phai_thu():
         }
         for i, row in enumerate(ds, start=1)
     ])
-
     pdf = tao_pdf_no_phai_thu(
         df,
         tu_ngay,
@@ -720,9 +719,62 @@ def tab_no_phai_tra():
 def tab_tong_hop():
 
     st.subheader("📊 Tổng hợp")
+    col1, col2 = st.columns(2)
 
-    ds = lay_tong_hop_cong_no()
+    with col1:
+        tu_ngay = st.date_input(
+            "📅 Từ ngày",
+            value=date.today().replace(day=1),
+            key="tonghop_tungay",
+        )
 
+    with col2:
+        den_ngay = st.date_input(
+            "📅 Đến ngày",
+            value=date.today(),
+            key="tonghop_denngay",
+        )
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+
+        ds_kh = lay_ds_khach_hang()
+
+        chon_kh = st.selectbox(
+            "👤 Khách hàng",
+            ["Tất cả"] + [x["ten"] for x in ds_kh],
+            key="tonghop_khachhang",
+        )
+
+    with col2:
+
+        tu_khoa = st.text_input(
+            "🔍 Tìm kiếm",
+            placeholder="Muốn kiếm gì kiếm...",
+            key="tonghop_timkiem",
+        )
+
+    khach_hang = None if chon_kh == "Tất cả" else chon_kh
+
+    ds = lay_tong_hop_cong_no(
+        tu_ngay,
+        den_ngay,
+        khach_hang,
+    )
+    if tu_khoa:
+
+        tk = tu_khoa.replace(",", "").strip().lower()
+
+        ds = [
+            row for row in ds
+            if (
+                tk in row["ten"].lower()
+                or tk in str(int(row["no_phai_thu"]))
+                or tk in str(int(row["no_phai_tra"]))
+                or tk in str(int(row["chenh_lech"]))
+            )
+        ]
     if not ds:
         st.info("Không có dữ liệu.")
         return
@@ -737,6 +789,8 @@ def tab_tong_hop():
         }
         for i, row in enumerate(ds, start=1)
     ])
+
+    
 
     pdf = tao_pdf_tong_hop_cong_no(df)
     buffer = io.BytesIO()
@@ -774,7 +828,7 @@ def tab_tong_hop():
     c2.write("**Phải thu**")
     c3.write("**Phải trả**")
     c4.write("**Chênh lệch**")
-    c5.write("👁")
+    #c5.write("👁")
 
     st.divider()
 
@@ -794,11 +848,11 @@ def tab_tong_hop():
         c2.write(f"{row['no_phai_thu']:,.0f}")
         c3.write(f"{row['no_phai_tra']:,.0f}")
         c4.write(f"**{row['chenh_lech']:,.0f}**")
-        if c5.button(
-            "👁",
-            key=f"xem_tonghop_{row['id']}"
-        ):
-            dialog_tong_hop(row["id"])
+        #if c5.button(
+            #"👁",
+            #key=f"xem_tonghop_{row['id']}"
+        #):
+            #dialog_tong_hop(row["id"])
 
     st.divider()
 

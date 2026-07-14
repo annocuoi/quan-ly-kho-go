@@ -3029,12 +3029,16 @@ def lay_no_phai_tra(
     close_connection(conn)
 
     return data
-def lay_tong_hop_cong_no():
+def lay_tong_hop_cong_no(
+    tu_ngay=None,
+    den_ngay=None,
+    khach_hang=None,
+):
 
     conn = get_connection()
     cur = conn.cursor()
 
-    cur.execute("""
+    sql = """
         SELECT
 
             kh.id,
@@ -3095,13 +3099,39 @@ def lay_tong_hop_cong_no():
         ) tt
             ON cn.id = tt.cong_no_id
 
+        WHERE 1=1
+    """
+
+    params = []
+
+    if tu_ngay:
+        sql += """
+            AND DATE(cn.ngay AT TIME ZONE 'Asia/Ho_Chi_Minh') >= %s
+        """
+        params.append(tu_ngay)
+
+    if den_ngay:
+        sql += """
+            AND DATE(cn.ngay AT TIME ZONE 'Asia/Ho_Chi_Minh') <= %s
+        """
+        params.append(den_ngay)
+
+    if khach_hang:
+        sql += """
+            AND kh.ten = %s
+        """
+        params.append(khach_hang)
+
+    sql += """
         GROUP BY
             kh.id,
             kh.ten
 
         ORDER BY
             kh.ten
-    """)
+    """
+
+    cur.execute(sql, params)
 
     data = cur.fetchall()
 
