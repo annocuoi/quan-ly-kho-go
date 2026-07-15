@@ -96,7 +96,7 @@ def tao_database():
 
             id SERIAL PRIMARY KEY,
 
-            so_phieu INTEGER UNIQUE NOT NULL,
+            so_phieu VARCHAR(20) UNIQUE NOT NULL,
 
             ngay DATE,
 
@@ -803,9 +803,7 @@ def lay_so_phieu_moi():
 
     cur.execute("""
         SELECT COALESCE(
-            MAX(
-                CAST(REPLACE(UPPER(so_phieu),'N','') AS INTEGER)
-            ),
+            MAX(CAST(REPLACE(so_phieu,'N','') AS INTEGER)),
             0
         ) + 1 AS stt
         FROM phieu_nhap
@@ -3364,9 +3362,7 @@ def lay_so_phieu_xuat_moi():
 
     cur.execute("""
         SELECT COALESCE(
-            MAX(
-                CAST(REPLACE(UPPER(so_phieu),'X','') AS INTEGER)
-            ),
+            MAX(CAST(REPLACE(so_phieu,'X','') AS INTEGER)),
             0
         ) + 1 AS stt
         FROM phieu_xuat
