@@ -157,6 +157,27 @@ def tao_pdf_tong_hop_cong_no(df):
 
     elements.append(table)
 
+    elements.append(Spacer(1, 50))
+
+    ky_ten = Table(
+        [[
+            Paragraph(
+                "<b>Người lập biểu</b>",
+                styles["Normal"]
+            )
+        ]],
+        colWidths=[150],
+        hAlign="RIGHT"
+    )
+
+    ky_ten.setStyle(TableStyle([
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("FONTNAME", (0, 0), (-1, -1), "DejaVu-Bold"),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 55),  # Chừa chỗ ký
+    ]))
+
+    elements.append(ky_ten)
+
     doc.build(elements)
 
     buffer.seek(0)
