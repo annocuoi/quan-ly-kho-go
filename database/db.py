@@ -345,7 +345,7 @@ def tao_database():
 
             id SERIAL PRIMARY KEY,
 
-            so_phieu INTEGER UNIQUE NOT NULL,
+            so_phieu VARCHAR(20) UNIQUE NOT NULL,
 
             khach_hang_id INTEGER NOT NULL,
 
