@@ -266,8 +266,34 @@ def dialog_chi_tiet(cong_no_id):
         [3,2,1,1,1,2,2,2,2,2]
     )
 
+    chenh_lech = phieu["so_tien"] - phieu["da_thanh_toan"]
+
     c1.write("")
-    c2.write("**CÒN PHẢI THU**")
+
+    if phieu["loai"] == "CONG_SAY":
+
+        if chenh_lech >= 0:
+            c2.write("**CÒN PHẢI THU**")
+            c10.write(f"**{chenh_lech:,.0f}**")
+        else:
+            c2.write("**KHÁCH TRẢ DƯ**")
+            c10.markdown(
+                f"<span style='color:red;font-weight:bold'>-{abs(chenh_lech):,.0f}</span>",
+                unsafe_allow_html=True
+            )
+
+    else:   # MUA_GO
+
+        if chenh_lech >= 0:
+            c2.write("**CÒN PHẢI TRẢ**")
+            c10.write(f"**{chenh_lech:,.0f}**")
+        else:
+            c2.write("**ĐÃ TRẢ DƯ**")
+            c10.markdown(
+                f"<span style='color:red;font-weight:bold'>-{abs(chenh_lech):,.0f}</span>",
+                unsafe_allow_html=True
+            )
+
     c3.write("")
     c4.write("")
     c5.write("")
@@ -275,7 +301,6 @@ def dialog_chi_tiet(cong_no_id):
     c7.write("")
     c8.write("")
     c9.write("")
-    c10.write(f"**{phieu['con_lai']:,.0f}**")
 
 @st.dialog("📊 Chi tiết tổng hợp", width="large")
 def dialog_tong_hop(khach_hang_id):
