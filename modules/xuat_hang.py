@@ -5,7 +5,9 @@ from database.db import (
     lay_so_phieu_xuat_moi,
     lay_ds_khach_hang,
     lay_kho_da_phan_loai,
-    luu_phieu_xuat
+    luu_phieu_xuat,
+    lay_ds_phieu_xuat,
+    lay_chi_tiet_phieu_xuat
 )
 
 
@@ -332,4 +334,79 @@ def show():
             st.info("Khách hàng chưa có hàng trong kho đã phân loại.")
 
     with tab2:
-        st.info("Đang phát triển...")
+
+        st.header("🚚 Lịch sử xuất")
+
+        ds = lay_ds_phieu_xuat()
+
+        if len(ds) == 0:
+
+            st.info("Chưa có phiếu xuất.")
+
+        else:
+
+            c1, c2, c3, c4, c5, c6, c7 = st.columns(
+                [1, 2, 4, 2, 1, 1, 1]
+            )
+
+            c1.write("Số phiếu")
+            c2.write("Ngày xuất")
+            c3.write("Khách hàng")
+            c4.write("Mặt hàng")
+            c5.write("👁")
+            c6.write("✏️")
+            c7.write("🗑")
+
+            st.divider()
+
+            for row in ds:
+
+                c1, c2, c3, c4, c5, c6, c7 = st.columns(
+                    [1, 2, 4, 2, 1, 1, 1]
+                )
+
+                c1.write(row["so_phieu"])
+                c2.write(row["ngay"].strftime("%d/%m/%Y"))
+                c3.write(row["khach_hang"])
+                c4.write(row["so_mat_hang"])
+
+                if c5.button(
+                    "👁",
+                    key=f"xem_xuat_{row['id']}"
+                ):
+                    st.session_state.xem_phieu_xuat = row["id"]
+                    st.rerun()
+
+                if c6.button(
+                    "✏️",
+                    key=f"sua_xuat_{row['id']}"
+                ):
+                    st.session_state.sua_phieu_xuat = row["id"]
+                    st.info("Chức năng sửa sẽ làm tiếp.")
+
+                if c7.button(
+                    "🗑",
+                    key=f"xoa_xuat_{row['id']}"
+                ):
+                    st.warning("Chưa làm chức năng xóa.")
+            if "xem_phieu_xuat" in st.session_state:
+
+                ct = lay_chi_tiet_phieu_xuat(
+                    st.session_state.xem_phieu_xuat
+                )
+
+                st.subheader("📦 Chi tiết phiếu xuất")
+
+                df = pd.DataFrame(ct)
+
+                st.dataframe(
+                    df,
+                    use_container_width=True,
+                    hide_index=True
+                )
+
+                if st.button("Đóng"):
+
+                    del st.session_state["xem_phieu_xuat"]
+
+                    st.rerun()

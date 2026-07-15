@@ -32,8 +32,97 @@ def dialog_chi_tiet(cong_no_id):
         ds_go,
         ds_tt,
     )
+    excel_buffer = io.BytesIO()
 
-    c1, c2 = st.columns([8, 2])
+    rows = []
+
+    tong_kg = 0
+    tong_thanh = 0
+    tong_m3 = 0
+    tong_tien = 0
+    tong_tt = 0
+
+    # Hàng hóa
+    for row in ds_go:
+
+        kg = row["so_luong"] if row["kieu_tinh"] == "TRONG_LUONG" else ""
+        thanh = row["so_thanh"] if row["kieu_tinh"] == "M3" else ""
+        m3 = row["so_luong"] if row["kieu_tinh"] == "M3" else ""
+
+        if row["kieu_tinh"] == "TRONG_LUONG":
+            tong_kg += row["so_luong"]
+        else:
+            tong_thanh += row["so_thanh"]
+            tong_m3 += row["so_luong"]
+
+        tong_tien += row["thanh_tien"]
+
+        rows.append({
+            "Ngày": phieu["ngay"].strftime("%d/%m/%Y"),
+            "Nội dung": row["ten"],
+            "Quy cách": "" if row["day"] is None else f"{int(row['day'])}x{int(row['rong'])}x{int(row['dai'])}",
+            "Kg": kg,
+            "Thanh": thanh,
+            "M3": m3,
+            "Đơn giá": row["don_gia"],
+            "Thành tiền": row["thanh_tien"],
+            "Thanh toán": "",
+            "Ghi chú": ""
+        })
+
+    # Thanh toán
+    for i, row in enumerate(ds_tt, start=1):
+
+        tong_tt += row["so_tien"]
+
+        rows.append({
+            "Ngày": row["ngay"].strftime("%d/%m/%Y"),
+            "Nội dung": f"Thanh toán lần {i}",
+            "Quy cách": "",
+            "Kg": "",
+            "Thanh": "",
+            "M3": "",
+            "Đơn giá": "",
+            "Thành tiền": "",
+            "Thanh toán": row["so_tien"],
+            "Ghi chú": row.get("ghi_chu", "")
+        })
+
+    # Tổng cộng
+    rows.append({
+        "Ngày": "",
+        "Nội dung": "TỔNG CỘNG",
+        "Quy cách": "",
+        "Kg": tong_kg,
+        "Thanh": tong_thanh,
+        "M3": tong_m3,
+        "Đơn giá": "",
+        "Thành tiền": tong_tien,
+        "Thanh toán": tong_tt,
+        "Ghi chú": ""
+    })
+
+    rows.append({
+        "Ngày": "",
+        "Nội dung": "CÒN PHẢI THU" if tong_tien >= tong_tt else "SỐ DƯ TẠM ỨNG",
+        "Quy cách": "",
+        "Kg": "",
+        "Thanh": "",
+        "M3": "",
+        "Đơn giá": "",
+        "Thành tiền": max(tong_tien - tong_tt, 0),
+        "Thanh toán": max(tong_tt - tong_tien, 0),
+        "Ghi chú": ""
+    })
+
+    df = pd.DataFrame(rows)
+
+    with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
+        df.to_excel(writer, sheet_name="Chi tiết", index=False)
+
+    excel_buffer.seek(0)
+
+    c1, c2, c3 = st.columns([6,2,2])
 
     with c1:
         st.subheader(f"📄 Phiếu {phieu['so_phieu']}")
@@ -47,6 +136,17 @@ def dialog_chi_tiet(cong_no_id):
             use_container_width=True,
             type="primary",
         )
+
+    with c3:
+        st.download_button(
+            "📊 Xuất Excel",
+            data=excel_buffer,
+            file_name=f"Chi_tiet_{phieu['so_phieu']}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+            type="primary",
+        )
+
     c1, c2, c3 = st.columns(3)
 
     c1.write(f"**Khách hàng:** {phieu['khach_hang']}")

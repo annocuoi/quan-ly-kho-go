@@ -38,8 +38,8 @@ def tao_pdf_chi_tiet_cong_no(
     doc = SimpleDocTemplate(
         buffer,
         pagesize=landscape(A4),
-        leftMargin=10,
-        rightMargin=10,
+        leftMargin=45,      # đổi từ 10 -> 45
+        rightMargin=45,
         topMargin=15,
         bottomMargin=15,
     )
@@ -60,128 +60,188 @@ def tao_pdf_chi_tiet_cong_no(
 
     elements = []
 
+    if phieu["loai"] == "CONG_SAY":
+        tieu_de = "PHIẾU NỢ PHẢI THU"
+    else:
+        tieu_de = "PHIẾU NỢ PHẢI TRẢ"
+
     elements.append(
         Paragraph(
-            "CHI TIẾT PHIẾU CÔNG NỢ",
+            tieu_de,
             title,
         )
     )
 
     elements.append(Spacer(1, 10))
 
-    elements.append(
-        Paragraph(
-            f"<b>Số phiếu:</b> {phieu['so_phieu']}",
-            styles["Normal"],
-        )
+    info = Table(
+        [[Paragraph(f"<b>Số phiếu:</b> {phieu['so_phieu']}", styles["Normal"])],
+        [Paragraph(f"<b>Khách hàng:</b> {phieu['khach_hang']}", styles["Normal"])],
+        [Paragraph(f"<b>Ngày:</b> {phieu['ngay'].strftime('%d/%m/%Y')}", styles["Normal"])],
+        [Paragraph(f"<b>Ngày in:</b> {datetime.now().strftime('%d/%m/%Y %H:%M')}", styles["Normal"])]],
+        colWidths=[300]
     )
 
-    elements.append(
-        Paragraph(
-            f"<b>Khách hàng:</b> {phieu['khach_hang']}",
-            styles["Normal"],
-        )
-    )
+    info.hAlign = "LEFT"
 
-    elements.append(
-        Paragraph(
-            f"<b>Ngày:</b> {phieu['ngay'].strftime('%d/%m/%Y')}",
-            styles["Normal"],
-        )
-    )
+    info.setStyle(TableStyle([
+        ("LEFTPADDING", (0,0), (-1,-1), 0),      # <-- đổi 80 thành 0
+        ("RIGHTPADDING", (0,0), (-1,-1), 0),
+        ("TOPPADDING", (0,0), (-1,-1), 0),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 1),
+    ]))
 
-    elements.append(
-        Paragraph(
-            f"<b>Ngày xuất:</b> {datetime.now().strftime('%d/%m/%Y %H:%M')}",
-            styles["Normal"],
-        )
-    )
-
+    elements.append(info)
     elements.append(Spacer(1, 12))
     # ==========================
-    # BẢNG CHI TIẾT GỖ
+    # BẢNG CÔNG NỢ
     # ==========================
 
     data = [[
         "STT",
-        "Tên gỗ",
+        "Ngày",
+        "Nội dung",
         "Quy cách",
         "Kg",
         "Thanh",
         "m³",
         "Đơn giá",
         "Thành tiền",
+        "Thanh toán",
+        "Ghi chú",
     ]]
 
     tong_kg = 0
     tong_thanh = 0
     tong_m3 = 0
     tong_tien = 0
+    tong_thanh_toan = 0
 
-    for i, item in enumerate(ds_go, start=1):
+    stt = 1
+
+    for item in ds_go:
 
         if item["kieu_tinh"] == "TRONG_LUONG":
 
-            quy_cach = "-"
-
-            kg = item["so_luong"]
+            quy_cach = ""
+            kg = float(item["so_luong"])
             thanh = ""
             m3 = ""
 
         else:
 
             quy_cach = f'{int(item["day"])}x{int(item["rong"])}x{int(item["dai"])}'
-
             kg = ""
-            thanh = f'{int(item["so_thanh"]):,}'
+            thanh = int(item["so_thanh"])
             m3 = f'{float(item["so_luong"]):.3f}'
 
         tong_kg += float(item["so_luong"] if item["kieu_tinh"] == "TRONG_LUONG" else 0)
-
         tong_thanh += int(item["so_thanh"] or 0)
-
         tong_m3 += float(item["so_luong"] if item["kieu_tinh"] == "M3" else 0)
-
         tong_tien += float(item["thanh_tien"])
 
         data.append([
-            i,
+            stt,
+            phieu["ngay"].strftime("%d/%m/%Y"),
             item["ten"],
             quy_cach,
-            kg if kg == "" else f"{float(kg):,.0f}",
+            "" if kg == "" else f"{kg:,.0f}",
             thanh,
             m3,
             dinh_dang_tien(item["don_gia"]),
             dinh_dang_tien(item["thanh_tien"]),
+            "",
+            "",
         ])
-    
-    tong_tien = float(phieu["so_tien"])
+
+        stt += 1
+
+    lan_tt = 1
+
+    for item in ds_tt:
+
+        so_tien = float(item["so_tien"])
+        tong_thanh_toan += so_tien
+
+        data.append([
+            stt,
+            item["ngay"].strftime("%d/%m/%Y"),
+            item.get("ghi_chu") or f"Thanh toán lần {lan_tt}",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            dinh_dang_tien(so_tien),
+            "",
+        ])
+
+        stt += 1
+        lan_tt += 1
 
     data.append([
         "",
         "",
-        "TỔNG CỘNG",
+        "Tổng cộng",
+        "",
         "" if tong_kg == 0 else f"{tong_kg:,.0f}",
         f"{tong_thanh:,}",
         "" if tong_m3 == 0 else f"{tong_m3:.3f}",
         "",
         dinh_dang_tien(tong_tien),
+        dinh_dang_tien(tong_thanh_toan),
+        "",
     ])
+    chenh_lech = tong_tien - tong_thanh_toan
+
+    if chenh_lech >= 0:
+        data.append([
+            "",
+            "",
+            "Còn nợ chưa thanh toán",
+            "",
+            "",
+            "",
+            "",
+            "",
+            dinh_dang_tien(chenh_lech),   # Thành tiền
+            "",
+            "",
+        ])
+    else:
+        data.append([
+            "",
+            "",
+            "Số dư tạm ứng",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",                            # Thành tiền để trống
+            dinh_dang_tien(abs(chenh_lech)),  # Hiện ở cột Thanh toán
+            "",
+        ])
 
     table = Table(
         data,
         repeatRows=1,
         colWidths=[
-            35,     # STT
-            120,    # Tên gỗ
-            90,     # Quy cách
-            60,     # Kg
-            55,     # Thanh
-            60,     # m3
-            90,     # Đơn giá
-            100,    # Thành tiền
+            35,   # STT
+            60,   # Ngày
+            140,  # Nội dung
+            80,   # Quy cách
+            45,   # Kg
+            45,   # Thanh
+            45,   # m3
+            70,   # Đơn giá
+            80,   # Thành tiền
+            80,   # Thanh toán
+            70,   # Ghi chú
         ],
     )
+    table.hAlign = "LEFT" 
 
     table.setStyle(TableStyle([
 
@@ -191,8 +251,7 @@ def tao_pdf_chi_tiet_cong_no(
         ("GRID", (0, 0), (-1, -1), 0.4, colors.grey),
 
         ("FONTNAME", (0, 0), (-1, 0), "DejaVu-Bold"),
-        ("FONTNAME", (0, 1), (-1, -2), "DejaVu"),
-        ("FONTNAME", (0, -1), (-1, -1), "DejaVu-Bold"),
+        ("FONTNAME", (0, 1), (-1, -1), "DejaVu"),
 
         ("FONTSIZE", (0, 0), (-1, -1), 8),
 
@@ -201,156 +260,20 @@ def tao_pdf_chi_tiet_cong_no(
 
         ("ALIGN", (0, 0), (-1, 0), "CENTER"),
 
-        ("ALIGN", (0, 1), (0, -2), "CENTER"),
-        ("ALIGN", (1, 1), (2, -2), "LEFT"),
-        ("ALIGN", (3, 1), (7, -2), "RIGHT"),
-
-        ("ALIGN", (0, -1), (2, -1), "CENTER"),
-        ("ALIGN", (3, -1), (7, -1), "RIGHT"),
+        ("ALIGN", (0, 1), (1, -1), "CENTER"),
+        ("ALIGN", (2, 1), (3, -1), "LEFT"),
+        ("ALIGN", (4, 1), (9, -1), "RIGHT"),
 
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
 
-        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#E8E8E8")),
+        ("BACKGROUND", (0, -2), (-1, -1), colors.HexColor("#F2F2F2")),
+
+        ("FONTNAME", (0, -2), (-1, -1), "DejaVu-Bold"),
 
     ]))
 
     elements.append(table)
-
-    elements.append(Spacer(1, 15))
-    # ==========================
-    # LỊCH SỬ THANH TOÁN
-    # ==========================
-
-    elements.append(
-        Paragraph(
-            "LỊCH SỬ THANH TOÁN",
-            heading2,
-        )
-    )
-    elements.append(Spacer(1, 8)) 
-
-    data_tt = [[
-        "STT",
-        "Ngày",
-        "Nội dung",
-        "Số tiền",
-    ]]
-
-    tong_da_thanh_toan = 0
-
-    for i, item in enumerate(ds_tt, start=1):
-
-        so_tien = float(item.get("so_tien") or 0)
-        tong_da_thanh_toan += so_tien
-
-        ngay = item.get("ngay")
-
-        if ngay:
-            try:
-                ngay = ngay.strftime("%d/%m/%Y")
-            except:
-                ngay = str(ngay)
-        else:
-            ngay = ""
-
-        noi_dung = item.get("ghi_chu") or f"Thanh toán lần {i}"
-
-        data_tt.append([
-            i,
-            ngay,
-            noi_dung,
-            dinh_dang_tien(so_tien),
-        ])
-
-    table_tt = Table(
-        data_tt,
-        repeatRows=1,
-        colWidths=[
-            35,
-            90,
-            360,
-            100,
-        ],
-    )
-
-    table_tt.setStyle(TableStyle([
-
-        ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#4F81BD")),
-        ("TEXTCOLOR", (0,0), (-1,0), colors.white),
-
-        ("GRID", (0,0), (-1,-1), 0.4, colors.grey),
-
-        ("FONTNAME", (0,0), (-1,0), "DejaVu-Bold"),
-        ("FONTNAME", (0,1), (-1,-1), "DejaVu"),
-
-        ("FONTSIZE", (0,0), (-1,-1), 8),
-
-        ("BOTTOMPADDING", (0,0), (-1,0), 6),
-        ("TOPPADDING", (0,0), (-1,0), 6),
-
-        ("ALIGN", (0,0), (-1,0), "CENTER"),
-        ("ALIGN", (0,1), (1,-1), "CENTER"),
-        ("ALIGN", (2,1), (2,-1), "LEFT"),
-        ("ALIGN", (3,1), (3,-1), "RIGHT"),
-
-        ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
-
-    ]))
-
-    elements.append(table_tt)
-
-    elements.append(Spacer(1, 15))
-    # ==========================
-    # TỔNG KẾT
-    # ==========================
-
-    tong_con_lai = float(phieu.get("con_lai") or 0)
-
-    data_tong = [
-        [
-            "Tổng tiền phiếu",
-            dinh_dang_tien(tong_tien),
-        ],
-        [
-            "Đã thanh toán",
-            dinh_dang_tien(tong_da_thanh_toan),
-        ],
-        [
-            "Còn lại",
-            dinh_dang_tien(tong_con_lai),
-        ],
-    ]
-
-    table_tong = Table(
-        data_tong,
-        colWidths=[
-            180,
-            130,
-        ],
-    )
-
-    table_tong.setStyle(TableStyle([
-
-        ("GRID", (0,0), (-1,-1), 0.5, colors.grey),
-
-        ("BACKGROUND", (0,0), (0,-1), colors.HexColor("#F5F5F5")),
-
-        ("FONTNAME", (0,0), (-1,-1), "DejaVu-Bold"),
-
-        ("FONTSIZE", (0,0), (-1,-1), 9),
-
-        ("ALIGN", (0,0), (0,-1), "LEFT"),
-        ("ALIGN", (1,0), (1,-1), "RIGHT"),
-
-        ("BOTTOMPADDING", (0,0), (-1,-1), 6),
-        ("TOPPADDING", (0,0), (-1,-1), 6),
-
-    ]))
-
-    table_tong.hAlign = "CENTER"
-    elements.append(table_tong)
-
-    elements.append(Spacer(1, 25))
+    elements.append(Spacer(1,20))
     # ==========================
     # CHỮ KÝ
     # ==========================
