@@ -802,15 +802,20 @@ def lay_so_phieu_moi():
     cur = conn.cursor()
 
     cur.execute("""
-        SELECT COALESCE(MAX(so_phieu),0)+1 AS so_phieu
+        SELECT COALESCE(
+            MAX(
+                CAST(REPLACE(UPPER(so_phieu),'N','') AS INTEGER)
+            ),
+            0
+        ) + 1 AS stt
         FROM phieu_nhap
     """)
 
-    so = cur.fetchone()["so_phieu"]
+    stt = cur.fetchone()["stt"]
 
     close_connection(conn)
 
-    return so
+    return f"N{stt}"
 
 def lay_phieu_nhap(id):
 
@@ -3358,15 +3363,20 @@ def lay_so_phieu_xuat_moi():
     cur = conn.cursor()
 
     cur.execute("""
-        SELECT COALESCE(MAX(so_phieu),0)+1 AS so_phieu
+        SELECT COALESCE(
+            MAX(
+                CAST(REPLACE(UPPER(so_phieu),'X','') AS INTEGER)
+            ),
+            0
+        ) + 1 AS stt
         FROM phieu_xuat
     """)
 
-    so = cur.fetchone()["so_phieu"]
+    stt = cur.fetchone()["stt"]
 
     close_connection(conn)
 
-    return so
+    return f"X{stt}"
 
 def luu_phieu_xuat(
     so_phieu,
