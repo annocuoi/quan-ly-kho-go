@@ -4,7 +4,7 @@ import pandas as pd
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.pagesizes import A4
 from reportlab.platypus import (
     SimpleDocTemplate,
     Table,
@@ -28,13 +28,25 @@ def tao_pdf_no_phai_thu(
 
     buffer = io.BytesIO()
 
+    col_widths = [
+        30,     # STT
+        45,     # Phiếu
+        60,     # Ngày
+        160,    # Khách hàng
+        75,     # Phải thu
+        75,     # Đã thu
+        75,     # Còn lại
+    ]
+
+    table_width = sum(col_widths)
+
     doc = SimpleDocTemplate(
         buffer,
-        pagesize=landscape(A4),
-        leftMargin=10,
-        rightMargin=10,
-        topMargin=15,
-        bottomMargin=15
+        pagesize=A4,
+        leftMargin=35,
+        rightMargin=35,
+        topMargin=30,
+        bottomMargin=30
     )
 
     styles = getSampleStyleSheet()
@@ -59,32 +71,37 @@ def tao_pdf_no_phai_thu(
 
     elements.append(Spacer(1, 10))
 
-    elements.append(
-        Paragraph(
-            f"<b>Từ ngày:</b> {tu_ngay.strftime('%d/%m/%Y')}",
-            styles["Normal"]
+    def dong_thong_tin(text):
+
+        t = Table(
+            [[Paragraph(text, styles["Normal"])]],
+            colWidths=[table_width],
+            hAlign="CENTER"
         )
+
+        t.setStyle(TableStyle([
+            ("LEFTPADDING", (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+            ("TOPPADDING", (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+        ]))
+
+        elements.append(t)
+
+    dong_thong_tin(
+        f"<b>Từ ngày:</b> {tu_ngay.strftime('%d/%m/%Y')}"
     )
 
-    elements.append(
-        Paragraph(
-            f"<b>Đến ngày:</b> {den_ngay.strftime('%d/%m/%Y')}",
-            styles["Normal"]
-        )
+    dong_thong_tin(
+        f"<b>Đến ngày:</b> {den_ngay.strftime('%d/%m/%Y')}"
     )
 
-    elements.append(
-        Paragraph(
-            f"<b>Khách hàng:</b> {ten_kh}",
-            styles["Normal"]
-        )
+    dong_thong_tin(
+        f"<b>Khách hàng:</b> {ten_kh}"
     )
 
-    elements.append(
-        Paragraph(
-            f"<b>Ngày xuất:</b> {datetime.now().strftime('%d/%m/%Y %H:%M')}",
-            styles["Normal"]
-        )
+    dong_thong_tin(
+        f"<b>Ngày xuất:</b> {datetime.now().strftime('%d/%m/%Y %H:%M')}"
     )
 
     elements.append(Spacer(1, 12))
@@ -129,56 +146,36 @@ def tao_pdf_no_phai_thu(
     table = Table(
         data,
         repeatRows=1,
-        colWidths=[
-            30,     # STT
-            45,     # Phiếu
-            60,     # Ngày
-            180,    # Khách hàng
-            90,     # Phải thu
-            90,     # Đã thu
-            90,     # Còn lại
-        ]
+        colWidths=col_widths,
+        hAlign="CENTER"
     )
 
     table.setStyle(TableStyle([
 
-        # Header
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#4F81BD")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
 
-        # Grid
         ("GRID", (0, 0), (-1, -1), 0.4, colors.grey),
 
-        # Font
         ("FONTNAME", (0, 0), (-1, 0), "DejaVu-Bold"),
         ("FONTNAME", (0, 1), (-1, -2), "DejaVu"),
         ("FONTNAME", (0, -1), (-1, -1), "DejaVu-Bold"),
 
         ("FONTSIZE", (0, 0), (-1, -1), 8),
 
-        # Padding
         ("BOTTOMPADDING", (0, 0), (-1, 0), 6),
         ("TOPPADDING", (0, 0), (-1, 0), 6),
 
-        # Header căn giữa
         ("ALIGN", (0, 0), (-1, 0), "CENTER"),
-
-        # STT - Phiếu - Ngày
         ("ALIGN", (0, 1), (2, -2), "CENTER"),
-
-        # Khách hàng
         ("ALIGN", (3, 1), (3, -2), "LEFT"),
-
-        # Tiền
         ("ALIGN", (4, 1), (6, -2), "RIGHT"),
 
-        # Dòng tổng
         ("ALIGN", (0, -1), (3, -1), "CENTER"),
         ("ALIGN", (4, -1), (6, -1), "RIGHT"),
 
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
 
-        # Dòng tổng màu xám
         ("BACKGROUND", (0, -1), (-1, -1), colors.lightgrey),
 
     ]))

@@ -4,7 +4,7 @@ import pandas as pd
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.pagesizes import A4
 from reportlab.platypus import (
     SimpleDocTemplate,
     Table,
@@ -25,11 +25,11 @@ def tao_pdf_tong_hop_cong_no(df):
 
     doc = SimpleDocTemplate(
         buffer,
-        pagesize=landscape(A4),
-        leftMargin=10,
-        rightMargin=10,
-        topMargin=15,
-        bottomMargin=15
+        pagesize=A4,
+        leftMargin=35,
+        rightMargin=35,
+        topMargin=30,
+        bottomMargin=30
     )
 
     styles = getSampleStyleSheet()
@@ -54,12 +54,23 @@ def tao_pdf_tong_hop_cong_no(df):
 
     elements.append(Spacer(1, 10))
 
-    elements.append(
-        Paragraph(
+    ngay_xuat = Table(
+        [[Paragraph(
             f"<b>Ngày xuất:</b> {datetime.now().strftime('%d/%m/%Y %H:%M')}",
             styles["Normal"]
-        )
+        )]],
+        colWidths=[455],
+        hAlign="CENTER"
     )
+
+    ngay_xuat.setStyle(TableStyle([
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+    ]))
+
+    elements.append(ngay_xuat)
 
     elements.append(Spacer(1, 12))
 
@@ -98,12 +109,13 @@ def tao_pdf_tong_hop_cong_no(df):
         data,
         repeatRows=1,
         colWidths=[
-            35,     # STT
-            220,    # Khách hàng
-            95,     # Phải thu
-            95,     # Phải trả
-            95,     # Chênh lệch
-        ]
+            30,
+            170,
+            85,
+            85,
+            85,
+        ],
+        hAlign="CENTER"
     )
 
     table.setStyle(TableStyle([
