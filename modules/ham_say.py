@@ -14,7 +14,10 @@ from database.db import (
     dua_m3_vao_ham,
     ra_ham,
     thu_hoi_ham,
-    lay_ds_thu_hoi_ham
+    lay_ds_thu_hoi_ham,
+    lay_kho_hang_mua,
+    dua_kg_hang_mua_vao_ham,
+    dua_m3_hang_mua_vao_ham
 )
 
 
@@ -327,14 +330,27 @@ def show():
 
         ds = []
 
-        for x in ds_kg:
+        # Kho tươi
+        for x in lay_kho_tuoi_kg():
+            x["nguon"] = "TUOI"
             x["loai"] = "KG"
             ds.append(x)
 
-        for x in ds_m3:
+        for x in lay_kho_tuoi_m3():
+            x["nguon"] = "TUOI"
             x["loai"] = "M3"
             ds.append(x)
 
+        # Kho hàng mua
+        for x in lay_kho_hang_mua():
+            x["nguon"] = "MUA"
+
+            if x["kg"] is not None:
+                x["loai"] = "KG"
+            else:
+                x["loai"] = "M3"
+
+            ds.append(x)
         c1, c2, c3, c4, c5, c6 = st.columns([1,2,3,3,2,1])
 
         with c1:
@@ -386,8 +402,10 @@ def show():
                         st.write(f'{int(dong["thanh"]):,} thanh')
 
                 with c6:
-                    if st.button("📥", key=f'dua_{dong["loai"]}_{dong["id"]}'):
-
+                    if st.button(
+                        "📥",
+                        key=f'dua_{dong["nguon"]}_{dong["id"]}'
+                    ):
                         st.session_state.go_dua_ham = dong
                         st.rerun()
     if st.session_state.go_dua_ham is not None:
@@ -454,20 +472,41 @@ def show():
                 key="xac_nhan_dua_ham"
             ):
 
-                if dong["loai"] == "KG":
+                if dong["nguon"] == "TUOI":
 
-                    dua_kg_vao_ham(
-                        dong["id"],
-                        so_ham
-                    )
+                    if dong["loai"] == "KG":
+
+                        dua_kg_vao_ham(
+                            dong["id"],
+                            so_ham,
+                            kg
+                        )
+
+                    else:
+
+                        dua_m3_vao_ham(
+                            dong["id"],
+                            so_ham,
+                            thanh
+                        )
 
                 else:
 
-                    dua_m3_vao_ham(
-                        dong["id"],
-                        so_ham,
-                        thanh
-                    )
+                    if dong["loai"] == "KG":
+
+                        dua_kg_hang_mua_vao_ham(
+                            dong["id"],
+                            so_ham,
+                            kg
+                        )
+
+                    else:
+
+                        dua_m3_hang_mua_vao_ham(
+                            dong["id"],
+                            so_ham,
+                            thanh
+                        )
 
                 st.success("Đã đưa vào hầm.")
 

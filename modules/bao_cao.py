@@ -461,8 +461,7 @@ def show():
                 # =========================
 
                 df["ngay"] = (
-                    pd.to_datetime(df["ngay"], utc=True)
-                    .dt.tz_convert("Asia/Ho_Chi_Minh")
+                    pd.to_datetime(df["ngay"])
                     .dt.strftime("%d/%m/%Y %H:%M")
                 )
 

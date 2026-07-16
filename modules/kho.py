@@ -16,7 +16,8 @@ from database.db import (
     lay_ds_ten_go,
     lay_ds_quy_cach,
     lay_ds_quy_cach_da_phan_loai,
-    lay_chi_tiet_nhap_hang_kho  
+    lay_chi_tiet_nhap_hang_kho,
+    lay_kho_hang_mua,  
 )
 
 def chon_lo():
@@ -270,50 +271,397 @@ def dialog_phan_loai():
     nhap_phan_loai(lo)
     
 def show():
-    if "lo_phan_loai" not in st.session_state:
-        st.session_state.lo_phan_loai = None
+    if "tab_nhom" not in st.session_state:
+        st.session_state.tab_nhom = "gia_cong"
 
     if "tab_kho" not in st.session_state:
         st.session_state.tab_kho = "tuoi"
 
     st.header("🏬 Kho")
+
     c1, c2, c3 = st.columns(3)
 
     with c1:
         if st.button(
-            "🟢 Kho hàng tươi",
-            type="primary" if st.session_state.tab_kho == "tuoi" else "secondary",
-            use_container_width=True
+            "🌲 Kho gia công",
+            type="primary" if st.session_state.tab_nhom == "gia_cong" else "secondary",
+            use_container_width=True,
         ):
-            st.session_state.tab_kho = "tuoi"
+            st.session_state.tab_nhom = "gia_cong"
             st.rerun()
 
     with c2:
         if st.button(
-            "🟡 Kho khô chưa phân loại",
-            type="primary" if st.session_state.tab_kho == "chua_phan_loai" else "secondary",
-            use_container_width=True
+            "📦 Kho hàng mua",
+            type="primary" if st.session_state.tab_nhom == "mua" else "secondary",
+            use_container_width=True,
         ):
-            st.session_state.tab_kho = "chua_phan_loai"
+            st.session_state.tab_nhom = "mua"
             st.rerun()
 
     with c3:
         if st.button(
-            "🟤 Kho khô đã phân loại",
-            type="primary" if st.session_state.tab_kho == "da_phan_loai" else "secondary",
-            use_container_width=True
+            "🟤 Kho đã phân loại",
+            type="primary" if st.session_state.tab_nhom == "da_phan_loai" else "secondary",
+            use_container_width=True,
         ):
-            st.session_state.tab_kho = "da_phan_loai"
+            st.session_state.tab_nhom = "da_phan_loai"
             st.rerun()
 
     st.divider()
 
-    if st.session_state.tab_kho == "tuoi":
-        st.subheader("🟢 Kho hàng tươi")
+    if st.session_state.tab_nhom == "gia_cong":
+
+        c1, c2 = st.columns(2)
+
+        with c1:
+            if st.button(
+                "🟢 Kho hàng tươi",
+                type="primary" if st.session_state.tab_kho == "tuoi" else "secondary",
+                use_container_width=True,
+            ):
+                st.session_state.tab_kho = "tuoi"
+                st.rerun()
+
+        with c2:
+            if st.button(
+                "🟡 Kho khô chưa phân loại",
+                type="primary" if st.session_state.tab_kho == "chua_phan_loai" else "secondary",
+                use_container_width=True,
+            ):
+                st.session_state.tab_kho = "chua_phan_loai"
+                st.rerun()
+
+        st.divider()
+
+        if st.session_state.tab_kho == "tuoi":
+            st.subheader("🟢 Kho hàng tươi")
+
+            c1, c2, c3 = st.columns(3)
+
+            with c1:
+                ds_kh = lay_ds_khach_hang()
+
+                options = [{"id": None, "ten": "Tất cả"}]
+                options.extend(ds_kh)
+
+                ten_kh = st.selectbox(
+                    "Khách hàng",
+                    [x["ten"] for x in options]
+                )
+
+                khach_hang_id = next(
+                    x["id"]
+                    for x in options
+                    if x["ten"] == ten_kh
+                )
+
+            with c2:
+
+                ds_ten = lay_ds_ten_go()
+
+                ds_ten = [{"ten": "Tất cả"}] + ds_ten
+
+                ten_go = st.selectbox(
+                    "Tên gỗ",
+                    [x["ten"] for x in ds_ten]
+                )
+
+                if ten_go == "Tất cả":
+                    ten_go = None
+
+            with c3:
+
+                loai_go_id = None
+
+                if ten_go is None:
+
+                    st.selectbox(
+                        "Quy cách",
+                        ["Tất cả"],
+                        disabled=True
+                    )
+
+                else:
+
+                    ds_qc = lay_ds_quy_cach(ten_go)
+
+                    options_qc = [{"id": None, "ten": "Tất cả"}]
+
+                    for x in ds_qc:
+
+                        options_qc.append({
+                            "id": x["id"],
+                            "ten": f'{int(x["day"])} × {int(x["rong"])} × {int(x["dai"])}'
+                        })
+
+                    ten_qc = st.selectbox(
+                        "Quy cách",
+                        [x["ten"] for x in options_qc]
+                    )
+
+                    loai_go_id = next(
+                        x["id"]
+                        for x in options_qc
+                        if x["ten"] == ten_qc
+                    )
+
+            ds = lay_kho_tuoi(
+                khach_hang_id,
+                ten_go,
+                loai_go_id
+            )
+            if len(ds) == 0:
+                st.info("Kho tươi đang trống.")
+                return
+
+            df = pd.DataFrame(ds)
+            df.columns = [
+                "ID",
+                "Ngày nhập",
+                "Số phiếu",
+                "Khách hàng",
+                "Tên gỗ",
+                "Dày",
+                "Rộng",
+                "Dài",
+                "Kg",
+                "Thanh",
+                "M³",
+                "Đơn giá",
+                "Thành tiền"
+            ]
+            df.drop(columns=["ID"], inplace=True)
+            df.insert(0, "STT", range(1, len(df) + 1))
+            df["Ngày nhập"] = pd.to_datetime(df["Ngày nhập"]).dt.strftime("%d/%m/%Y")
+
+            for c in ["Dày", "Rộng", "Dài", "Thanh"]:
+                df[c] = df[c].apply(lambda x: "" if pd.isna(x) else int(x))
+
+            df["Kg"] = df["Kg"].apply(lambda x: "" if pd.isna(x) else f"{x:,.0f}")
+            df["M³"] = df["M³"].apply(lambda x: "" if pd.isna(x) else f"{x:.3f}")
+            df["Đơn giá"] = df["Đơn giá"].apply(
+                lambda x: "" if pd.isna(x) else f"{x:,.0f}"
+            )
+
+            df["Thành tiền"] = df["Thành tiền"].apply(
+                lambda x: "" if pd.isna(x) else f"{x:,.0f}"
+            )
+
+            tong_kg = pd.to_numeric(df["Kg"].astype(str).str.replace(",", ""), errors="coerce").fillna(0).sum()
+            tong_thanh = pd.to_numeric(df["Thanh"], errors="coerce").fillna(0).sum()
+            tong_m3 = pd.to_numeric(df["M³"], errors="coerce").fillna(0).sum()
+            tong_tien = pd.to_numeric(
+                df["Thành tiền"].astype(str).str.replace(",", ""),
+                errors="coerce"
+            ).fillna(0).sum()
+
+            df.loc[len(df)] = {
+                "STT": "",
+                "Ngày nhập": "",
+                "Số phiếu": "",
+                "Khách hàng": "",
+                "Tên gỗ": "TỔNG CỘNG",
+                "Dày": "",
+                "Rộng": "",
+                "Dài": "",
+                "Kg": f"{tong_kg:,.0f}" if tong_kg else "",
+                "Thanh": f"{tong_thanh:,.0f}" if tong_thanh else "",
+                "M³": f"{tong_m3:.3f}" if tong_m3 else "",
+                "Đơn giá": "",
+                "Thành tiền": f"{tong_tien:,.0f}" if tong_tien else "",
+            }
+            pdf = tao_pdf_kho_tuoi(df, ten_kh, ten_go)
+
+            buffer = io.BytesIO()
+            with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+                df.to_excel(writer, index=False, sheet_name="Kho tươi")
+            buffer.seek(0)
+
+            c1, c2 = st.columns(2)
+            with c1:
+                st.download_button("📄 Xuất PDF", data=pdf, file_name="Kho_tuoi.pdf", mime="application/pdf", use_container_width=True, type="primary")
+            with c2:
+                st.download_button("📊 Xuất Excel", data=buffer, file_name="Kho_tuoi.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True, type="primary")
+
+            st.dataframe(df, use_container_width=True, hide_index=True)
+
+        elif st.session_state.tab_kho == "chua_phan_loai":
+            st.subheader("🟡 Kho khô chưa phân loại")
+            c1, c2, c3 = st.columns(3)
+
+            with c1:
+                ds_kh = lay_ds_khach_hang()
+                options = [{"id": None, "ten": "Tất cả"}]
+                options.extend(ds_kh)
+                ten_kh = st.selectbox("Khách hàng", [x["ten"] for x in options], key="kh_kho")
+                khach_hang_id = next(x["id"] for x in options if x["ten"] == ten_kh)
+
+            with c2:
+
+                ds_ten = lay_ds_ten_go()
+
+                ds_ten = [{"ten": "Tất cả"}] + ds_ten
+
+                ten_go = st.selectbox(
+                    "Tên gỗ",
+                    [x["ten"] for x in ds_ten],
+                    key="ten_go_kho"
+                )
+
+                if ten_go == "Tất cả":
+                    ten_go = None
+
+            with c3:
+
+                loai_go_id = None
+
+                if ten_go is None:
+
+                    st.selectbox(
+                        "Quy cách",
+                        ["Tất cả"],
+                        disabled=True,
+                        key="qc_kho"
+                    )
+
+                else:
+
+                    ds_qc = lay_ds_quy_cach(ten_go)
+
+                    if len(ds_qc) == 0:
+
+                        st.selectbox(
+                            "Quy cách",
+                            ["Không có"],
+                            disabled=True,
+                            key="qc_kho"
+                        )
+
+                    else:
+
+                        options_qc = [{"id": None, "ten": "Tất cả"}]
+
+                        for x in ds_qc:
+
+                            options_qc.append({
+                                "id": x["id"],
+                                "ten": f"{int(x['day'])} × {int(x['rong'])} × {int(x['dai'])}"
+                            })
+
+                        ten_qc = st.selectbox(
+                            "Quy cách",
+                            [x["ten"] for x in options_qc],
+                            key="qc_kho"
+                        )
+
+                        loai_go_id = next(
+                            x["id"]
+                            for x in options_qc
+                            if x["ten"] == ten_qc
+                        )
+
+            ds = lay_kho_kho(khach_hang_id, loai_go_id)
+            if len(ds) == 0:
+                st.info("Kho khô đang trống.")
+                return
+
+            df = pd.DataFrame(ds)
+            df.columns = [
+                "ID",
+                "Ngày nhập",
+                "Số phiếu",
+                "Khách hàng",
+                "Tên gỗ",
+                "Kiểu tính",
+                "Dày",
+                "Rộng",
+                "Dài",
+                "Kg",
+                "Thanh",
+                "M³",
+                "Ngày vào hầm",
+                "Ngày ra hầm",
+                "Đơn giá",
+                "Thành tiền"
+            ]
+            df.drop(columns=["ID"], inplace=True)
+            df.insert(0, "STT", range(1, len(df) + 1))
+            df["Ngày nhập"] = pd.to_datetime(df["Ngày nhập"]).dt.strftime("%d/%m/%Y")
+
+            VN = ZoneInfo("Asia/Ho_Chi_Minh")
+            ngay_vao = pd.to_datetime(df["Ngày vào hầm"]).dt.tz_localize("UTC").dt.tz_convert(VN)
+            ngay_ra = pd.to_datetime(df["Ngày ra hầm"]).dt.tz_localize("UTC").dt.tz_convert(VN)
+            df["Ngày vào hầm"] = ngay_vao.dt.strftime("%d/%m/%Y %H:%M")
+            df["Ngày ra hầm"] = ngay_ra.dt.strftime("%d/%m/%Y %H:%M")
+
+            for c in ["Dày", "Rộng", "Dài"]:
+                df[c] = df[c].apply(lambda x: "" if pd.isna(x) else int(x))
+
+            df["Thanh"] = df["Thanh"].apply(lambda x: "" if pd.isna(x) else f"{int(x):,}")
+            df["Kg"] = df["Kg"].apply(lambda x: "" if pd.isna(x) else f"{x:,.0f}")
+            df["M³"] = df["M³"].apply(lambda x: "" if pd.isna(x) else f"{x:.3f}")
+            df["Đơn giá"] = df["Đơn giá"].apply(
+                lambda x: "" if pd.isna(x) else f"{x:,.0f}"
+            )
+
+            df["Thành tiền"] = df["Thành tiền"].apply(
+                lambda x: "" if pd.isna(x) else f"{x:,.0f}"
+            )
+
+            tong_kg = pd.to_numeric(df["Kg"].astype(str).str.replace(",", ""), errors="coerce").fillna(0).sum()
+            tong_thanh = pd.to_numeric(df["Thanh"].astype(str).str.replace(",", ""), errors="coerce").fillna(0).sum()
+            tong_m3 = pd.to_numeric(df["M³"], errors="coerce").fillna(0).sum()
+
+            tong_tien = pd.to_numeric(
+                df["Thành tiền"].astype(str).str.replace(",", ""),
+                errors="coerce"
+            ).fillna(0).sum()
+
+            df.loc[len(df)] = {
+                "STT": "",
+                "Ngày nhập": "",
+                "Số phiếu": "",
+                "Khách hàng": "",
+                "Tên gỗ": "TỔNG CỘNG",
+                "Dày": "",
+                "Rộng": "",
+                "Dài": "",
+                "Kg": f"{tong_kg:,.0f}" if tong_kg else "",
+                "Thanh": f"{tong_thanh:,.0f}" if tong_thanh else "",
+                "M³": f"{tong_m3:.3f}" if tong_m3 else "",
+                "Ngày vào hầm": "",
+                "Ngày ra hầm": "",
+                "Đơn giá": "",
+                "Thành tiền": f"{tong_tien:,.0f}" if tong_tien else ""
+            }
+            pdf = tao_pdf_kho_kho(df, ten_kh, ten_go)
+
+            buffer = io.BytesIO()
+            with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+                df.to_excel(writer, index=False, sheet_name="Kho khô")
+            buffer.seek(0)
+
+            c1, c2 = st.columns(2)
+            with c1:
+                st.download_button("📄 Xuất PDF", data=pdf, file_name="Kho_kho.pdf", mime="application/pdf", use_container_width=True, type="primary")
+            with c2:
+                st.download_button("📊 Xuất Excel", data=buffer, file_name="Kho_kho.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True, type="primary")
+            
+            st.dataframe(df, use_container_width=True, hide_index=True)
+            st.divider()
+
+            if st.button("📦 Phân loại kho khô", use_container_width=True, type="primary"):
+                dialog_phan_loai() 
+
+    elif st.session_state.tab_nhom == "mua":
+
+        st.subheader("📦 Kho hàng mua")
 
         c1, c2, c3 = st.columns(3)
 
         with c1:
+
             ds_kh = lay_ds_khach_hang()
 
             options = [{"id": None, "ten": "Tất cả"}]
@@ -321,7 +669,8 @@ def show():
 
             ten_kh = st.selectbox(
                 "Khách hàng",
-                [x["ten"] for x in options]
+                [x["ten"] for x in options],
+                key="kh_mua"
             )
 
             khach_hang_id = next(
@@ -338,7 +687,8 @@ def show():
 
             ten_go = st.selectbox(
                 "Tên gỗ",
-                [x["ten"] for x in ds_ten]
+                [x["ten"] for x in ds_ten],
+                key="ten_go_mua"
             )
 
             if ten_go == "Tất cả":
@@ -353,7 +703,8 @@ def show():
                 st.selectbox(
                     "Quy cách",
                     ["Tất cả"],
-                    disabled=True
+                    disabled=True,
+                    key="qc_mua"
                 )
 
             else:
@@ -371,7 +722,8 @@ def show():
 
                 ten_qc = st.selectbox(
                     "Quy cách",
-                    [x["ten"] for x in options_qc]
+                    [x["ten"] for x in options_qc],
+                    key="qc_mua"
                 )
 
                 loai_go_id = next(
@@ -380,224 +732,122 @@ def show():
                     if x["ten"] == ten_qc
                 )
 
-        ds = lay_kho_tuoi(
+        ds = lay_kho_hang_mua(
             khach_hang_id,
-            ten_go,
             loai_go_id
         )
+
         if len(ds) == 0:
-            st.info("Kho tươi đang trống.")
-            return
+            st.info("Kho hàng mua đang trống.")
+        else:
 
-        df = pd.DataFrame(ds)
-        df.columns = [
-            "ID",
-            "Ngày nhập",
-            "Số phiếu",
-            "Khách hàng",
-            "Tên gỗ",
-            "Dày",
-            "Rộng",
-            "Dài",
-            "Kg",
-            "Thanh",
-            "M³"
-        ]
-        df.drop(columns=["ID"], inplace=True)
-        df.insert(0, "STT", range(1, len(df) + 1))
-        df["Ngày nhập"] = pd.to_datetime(df["Ngày nhập"]).dt.strftime("%d/%m/%Y")
+            df = pd.DataFrame(ds)
 
-        for c in ["Dày", "Rộng", "Dài", "Thanh"]:
-            df[c] = df[c].apply(lambda x: "" if pd.isna(x) else int(x))
-
-        df["Kg"] = df["Kg"].apply(lambda x: "" if pd.isna(x) else f"{x:,.0f}")
-        df["M³"] = df["M³"].apply(lambda x: "" if pd.isna(x) else f"{x:.3f}")
-
-        tong_kg = pd.to_numeric(df["Kg"].astype(str).str.replace(",", ""), errors="coerce").fillna(0).sum()
-        tong_thanh = pd.to_numeric(df["Thanh"], errors="coerce").fillna(0).sum()
-        tong_m3 = pd.to_numeric(df["M³"], errors="coerce").fillna(0).sum()
-
-        df.loc[len(df)] = {
-            "STT": "",
-            "Ngày nhập": "",
-            "Số phiếu": "",
-            "Khách hàng": "",
-            "Tên gỗ": "TỔNG CỘNG",
-            "Dày": "",
-            "Rộng": "",
-            "Dài": "",
-            "Kg": f"{tong_kg:,.0f}" if tong_kg else "",
-            "Thanh": f"{tong_thanh:,.0f}" if tong_thanh else "",
-            "M³": f"{tong_m3:.3f}" if tong_m3 else "",
-        }
-        pdf = tao_pdf_kho_tuoi(df, ten_kh, ten_go)
-
-        buffer = io.BytesIO()
-        with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-            df.to_excel(writer, index=False, sheet_name="Kho tươi")
-        buffer.seek(0)
-
-        c1, c2 = st.columns(2)
-        with c1:
-            st.download_button("📄 Xuất PDF", data=pdf, file_name="Kho_tuoi.pdf", mime="application/pdf", use_container_width=True, type="primary")
-        with c2:
-            st.download_button("📊 Xuất Excel", data=buffer, file_name="Kho_tuoi.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True, type="primary")
-
-        st.dataframe(df, use_container_width=True, hide_index=True)
-
-    elif st.session_state.tab_kho == "chua_phan_loai":
-        st.subheader("🟡 Kho khô chưa phân loại")
-        c1, c2, c3 = st.columns(3)
-
-        with c1:
-            ds_kh = lay_ds_khach_hang()
-            options = [{"id": None, "ten": "Tất cả"}]
-            options.extend(ds_kh)
-            ten_kh = st.selectbox("Khách hàng", [x["ten"] for x in options], key="kh_kho")
-            khach_hang_id = next(x["id"] for x in options if x["ten"] == ten_kh)
-
-        with c2:
-
-            ds_ten = lay_ds_ten_go()
-
-            ds_ten = [{"ten": "Tất cả"}] + ds_ten
-
-            ten_go = st.selectbox(
+            df.columns = [
+                "ID",
+                "Ngày nhập",
+                "Số phiếu",
+                "Khách hàng",
                 "Tên gỗ",
-                [x["ten"] for x in ds_ten],
-                key="ten_go_kho"
-            )
+                "Kiểu tính",
+                "Dày",
+                "Rộng",
+                "Dài",
+                "Kg",
+                "Thanh",
+                "M³",
+                "Đơn giá",
+                "Thành tiền"
+            ]
 
-            if ten_go == "Tất cả":
-                ten_go = None
+            df.drop(columns=["ID"], inplace=True)
 
-        with c3:
+            df.insert(0, "STT", range(1, len(df) + 1))
 
-            loai_go_id = None
+            df["Ngày nhập"] = pd.to_datetime(
+                df["Ngày nhập"]
+            ).dt.strftime("%d/%m/%Y")
+            df["Kiểu tính"] = df["Kiểu tính"].replace({
+                "M3": "Khối (m³)",
+                "TRONG_LUONG": "Trọng lượng (Kg)"
+            })
 
-            if ten_go is None:
-
-                st.selectbox(
-                    "Quy cách",
-                    ["Tất cả"],
-                    disabled=True,
-                    key="qc_kho"
+            for c in ["Dày", "Rộng", "Dài"]:
+                df[c] = df[c].apply(
+                    lambda x: "" if pd.isna(x) else int(x)
                 )
 
-            else:
+            df["Thanh"] = df["Thanh"].apply(
+                lambda x: "" if pd.isna(x) else f"{int(x):,}"
+            )
 
-                ds_qc = lay_ds_quy_cach(ten_go)
+            df["Kg"] = df["Kg"].apply(
+                lambda x: "" if pd.isna(x) else f"{x:,.0f}"
+            )
 
-                if len(ds_qc) == 0:
+            df["M³"] = df["M³"].apply(
+                lambda x: "" if pd.isna(x) else f"{x:.3f}"
+            )
+            df["Đơn giá"] = df["Đơn giá"].apply(
+                lambda x: "" if pd.isna(x) else f"{x:,.0f}"
+            )
 
-                    st.selectbox(
-                        "Quy cách",
-                        ["Không có"],
-                        disabled=True,
-                        key="qc_kho"
-                    )
+            df["Thành tiền"] = df["Thành tiền"].apply(
+                lambda x: "" if pd.isna(x) else f"{x:,.0f}"
+            )
+            tong_kg = pd.to_numeric(
+                df["Kg"].astype(str).str.replace(",", ""),
+                errors="coerce"
+            ).fillna(0).sum()
 
-                else:
+            tong_thanh = pd.to_numeric(
+                df["Thanh"].astype(str).str.replace(",", ""),
+                errors="coerce"
+            ).fillna(0).sum()
 
-                    options_qc = [{"id": None, "ten": "Tất cả"}]
+            tong_m3 = pd.to_numeric(
+                df["M³"],
+                errors="coerce"
+            ).fillna(0).sum()
 
-                    for x in ds_qc:
+            tong_tien = pd.to_numeric(
+                df["Thành tiền"].astype(str).str.replace(",", ""),
+                errors="coerce"
+            ).fillna(0).sum()
 
-                        options_qc.append({
-                            "id": x["id"],
-                            "ten": f"{int(x['day'])} × {int(x['rong'])} × {int(x['dai'])}"
-                        })
+            df.loc[len(df)] = {
+                "STT": "",
+                "Ngày nhập": "",
+                "Số phiếu": "",
+                "Khách hàng": "",
+                "Tên gỗ": "TỔNG CỘNG",
+                "Kiểu tính": "",
+                "Dày": "",
+                "Rộng": "",
+                "Dài": "",
+                "Kg": f"{tong_kg:,.0f}" if tong_kg else "",
+                "Thanh": f"{tong_thanh:,.0f}" if tong_thanh else "",
+                "M³": f"{tong_m3:.3f}" if tong_m3 else "",
+                "Đơn giá": "",
+                "Thành tiền": f"{tong_tien:,.0f}" if tong_tien else ""
+            }
 
-                    ten_qc = st.selectbox(
-                        "Quy cách",
-                        [x["ten"] for x in options_qc],
-                        key="qc_kho"
-                    )
+            st.dataframe(
+                df,
+                use_container_width=True,
+                hide_index=True
+            )
 
-                    loai_go_id = next(
-                        x["id"]
-                        for x in options_qc
-                        if x["ten"] == ten_qc
-                    )
-
-        ds = lay_kho_kho(khach_hang_id, loai_go_id)
-        if len(ds) == 0:
-            st.info("Kho khô đang trống.")
-            return
-
-        df = pd.DataFrame(ds)
-        df.columns = [
-            "ID",
-            "Ngày nhập",
-            "Số phiếu",
-            "Khách hàng",
-            "Tên gỗ",
-            "Kiểu tính",
-            "Dày",
-            "Rộng",
-            "Dài",
-            "Kg",
-            "Thanh",
-            "M³",
-            "Ngày vào hầm",
-            "Ngày ra hầm"
-        ]
-        df.drop(columns=["ID"], inplace=True)
-        df.insert(0, "STT", range(1, len(df) + 1))
-        df["Ngày nhập"] = pd.to_datetime(df["Ngày nhập"]).dt.strftime("%d/%m/%Y")
-
-        VN = ZoneInfo("Asia/Ho_Chi_Minh")
-        ngay_vao = pd.to_datetime(df["Ngày vào hầm"]).dt.tz_localize("UTC").dt.tz_convert(VN)
-        ngay_ra = pd.to_datetime(df["Ngày ra hầm"]).dt.tz_localize("UTC").dt.tz_convert(VN)
-        df["Ngày vào hầm"] = ngay_vao.dt.strftime("%d/%m/%Y %H:%M")
-        df["Ngày ra hầm"] = ngay_ra.dt.strftime("%d/%m/%Y %H:%M")
-
-        for c in ["Dày", "Rộng", "Dài"]:
-            df[c] = df[c].apply(lambda x: "" if pd.isna(x) else int(x))
-
-        df["Thanh"] = df["Thanh"].apply(lambda x: "" if pd.isna(x) else f"{int(x):,}")
-        df["Kg"] = df["Kg"].apply(lambda x: "" if pd.isna(x) else f"{x:,.0f}")
-        df["M³"] = df["M³"].apply(lambda x: "" if pd.isna(x) else f"{x:.3f}")
-
-        tong_kg = pd.to_numeric(df["Kg"].astype(str).str.replace(",", ""), errors="coerce").fillna(0).sum()
-        tong_thanh = pd.to_numeric(df["Thanh"].astype(str).str.replace(",", ""), errors="coerce").fillna(0).sum()
-        tong_m3 = pd.to_numeric(df["M³"], errors="coerce").fillna(0).sum()
-
-        df.loc[len(df)] = {
-            "STT": "",
-            "Ngày nhập": "",
-            "Số phiếu": "",
-            "Khách hàng": "",
-            "Tên gỗ": "TỔNG CỘNG",
-            "Dày": "",
-            "Rộng": "",
-            "Dài": "",
-            "Kg": f"{tong_kg:,.0f}" if tong_kg else "",
-            "Thanh": f"{tong_thanh:,.0f}" if tong_thanh else "",
-            "M³": f"{tong_m3:.3f}" if tong_m3 else "",
-            "Ngày vào hầm": "",
-            "Ngày ra hầm": ""
-        }
-        pdf = tao_pdf_kho_kho(df, ten_kh, ten_go)
-
-        buffer = io.BytesIO()
-        with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-            df.to_excel(writer, index=False, sheet_name="Kho khô")
-        buffer.seek(0)
-
-        c1, c2 = st.columns(2)
-        with c1:
-            st.download_button("📄 Xuất PDF", data=pdf, file_name="Kho_kho.pdf", mime="application/pdf", use_container_width=True, type="primary")
-        with c2:
-            st.download_button("📊 Xuất Excel", data=buffer, file_name="Kho_kho.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True, type="primary")
-        
-        st.dataframe(df, use_container_width=True, hide_index=True)
         st.divider()
 
-        if st.button("📦 Phân loại kho khô", use_container_width=True, type="primary"):
-            dialog_phan_loai() 
+        if st.button(
+            "📦 Chuyển sang kho đã phân loại",
+            type="primary",
+            use_container_width=True
+        ):
+            pass
 
-    elif st.session_state.tab_kho == "da_phan_loai":
+    elif st.session_state.tab_nhom == "da_phan_loai":
         st.subheader("🟤 Kho khô đã phân loại")
         ds_quy_cach = []
         chon_qc = []
@@ -741,7 +991,9 @@ def show():
             "dai": "Dài",
             "kg": "Kg",
             "thanh": "Thanh",
-            "m3": "M³"
+            "m3": "M³",
+            "don_gia": "Đơn giá",
+            "thanh_tien": "Thành tiền"
         })
 
         df = df[
@@ -756,7 +1008,9 @@ def show():
                 "Dài",
                 "Kg",
                 "Thanh",
-                "M³"
+                "M³",
+                "Đơn giá",
+                "Thành tiền"
             ]
         ]
 
@@ -784,6 +1038,10 @@ def show():
         tong_kg = pd.to_numeric(df["Kg"], errors="coerce").fillna(0).sum()
         tong_thanh = pd.to_numeric(df["Thanh"], errors="coerce").fillna(0).sum()
         tong_m3 = pd.to_numeric(df["M³"], errors="coerce").fillna(0).sum()
+        tong_tien = pd.to_numeric(
+            df["Thành tiền"].astype(str).str.replace(",", ""),
+            errors="coerce"
+        ).fillna(0).sum()
 
 
         df["Kg"] = df["Kg"].apply(
@@ -796,6 +1054,13 @@ def show():
 
         df["M³"] = df["M³"].apply(
             lambda x: "" if pd.isna(x) else f"{float(x):.3f}"
+        )
+        df["Đơn giá"] = df["Đơn giá"].apply(
+            lambda x: "" if pd.isna(x) else f"{x:,.0f}"
+        )
+
+        df["Thành tiền"] = df["Thành tiền"].apply(
+            lambda x: "" if pd.isna(x) else f"{x:,.0f}"
         )
 
 
@@ -811,7 +1076,9 @@ def show():
             "Dài": "",
             "Kg": f"{tong_kg:,.0f}" if tong_kg else "",
             "Thanh": f"{tong_thanh:,.0f}" if tong_thanh else "",
-            "M³": f"{tong_m3:.3f}" if tong_m3 else ""
+            "M³": f"{tong_m3:.3f}" if tong_m3 else "",
+            "Đơn giá": "",
+            "Thành tiền": f"{tong_tien:,.0f}" if tong_tien else ""
         }
 
         ten_qc = ", ".join(chon_qc) if chon_qc else "Tất cả"
