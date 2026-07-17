@@ -375,6 +375,10 @@ def tao_database():
 
             so_thanh INTEGER NOT NULL,
 
+            don_gia_ban DOUBLE PRECISION,
+
+            thanh_tien DOUBLE PRECISION,
+
             FOREIGN KEY(phieu_xuat_id)
                 REFERENCES phieu_xuat(id)
                 ON DELETE CASCADE,
@@ -976,16 +980,16 @@ def lay_bao_cao_nhap(
             FROM phieu_nhap pn
 
             JOIN khach_hang kh
-                ON pn.khach_hang_id=kh.id
+                ON pn.khach_hang_id = kh.id
 
             JOIN chi_tiet_phieu_nhap ct
-                ON pn.id=ct.phieu_nhap_id
+                ON pn.id = ct.phieu_nhap_id
 
             JOIN loai_go lg
-                ON ct.loai_go_id=lg.id
+                ON ct.loai_go_id = lg.id
 
             WHERE
-                pn.loai_nhap='TUOI'
+                pn.loai_nhap = 'TUOI'
                 AND pn.ngay BETWEEN %s AND %s
         """
 
@@ -1003,14 +1007,13 @@ def lay_bao_cao_nhap(
             sql += " AND lg.id=%s"
             params.append(loai_go_id)
 
-        sql += " ORDER BY pn.ngay,pn.so_phieu,ct.id"
+        sql += " ORDER BY pn.ngay, pn.so_phieu, ct.id"
 
         cur.execute(sql, tuple(params))
-
         ds.extend(cur.fetchall())
 
     # =========================
-    # HÀNG KHÔ
+    # HÀNG MUA
     # =========================
 
     if loai_nhap in (None, "KHO"):
@@ -1022,56 +1025,50 @@ def lay_bao_cao_nhap(
                 pn.so_phieu,
                 kh.ten AS khach_hang,
 
-                '🪵 Hàng khô' AS loai_nhap,
+                '📦 Hàng mua' AS loai_nhap,
 
                 lg.ten,
 
-                pl.ten AS phan_loai,
+                '' AS phan_loai,
 
-                kp.day,
-                kp.rong,
-                kp.dai,
+                lg.day,
+                lg.rong,
+                lg.dai,
 
                 CASE
                     WHEN lg.kieu_tinh='TRONG_LUONG'
-                    THEN kp.so_luong
+                    THEN ct.so_luong
                     ELSE NULL
                 END AS kg,
 
                 CASE
                     WHEN lg.kieu_tinh='M3'
-                    THEN kp.so_thanh
+                    THEN ct.so_thanh
                     ELSE NULL
                 END AS thanh,
 
                 CASE
                     WHEN lg.kieu_tinh='M3'
-                    THEN kp.so_luong
+                    THEN ct.so_luong
                     ELSE NULL
                 END AS m3,
 
                 ct.don_gia,
                 ct.thanh_tien
 
-            FROM kho_phan_loai kp
-
-            JOIN chi_tiet_phieu_nhap ct
-                ON kp.chi_tiet_phieu_nhap_id=ct.id
-
-            JOIN phieu_nhap pn
-                ON ct.phieu_nhap_id=pn.id
+            FROM phieu_nhap pn
 
             JOIN khach_hang kh
-                ON pn.khach_hang_id=kh.id
+                ON pn.khach_hang_id = kh.id
+
+            JOIN chi_tiet_phieu_nhap ct
+                ON pn.id = ct.phieu_nhap_id
 
             JOIN loai_go lg
-                ON ct.loai_go_id=lg.id
-
-            JOIN phan_loai_go pl
-                ON kp.phan_loai_go_id=pl.id
+                ON ct.loai_go_id = lg.id
 
             WHERE
-                pn.loai_nhap='KHO'
+                pn.loai_nhap = 'KHO'
                 AND pn.ngay BETWEEN %s AND %s
         """
 
@@ -1089,10 +1086,9 @@ def lay_bao_cao_nhap(
             sql += " AND lg.id=%s"
             params.append(loai_go_id)
 
-        sql += " ORDER BY pn.ngay,pn.so_phieu,kp.id"
+        sql += " ORDER BY pn.ngay, pn.so_phieu, ct.id"
 
         cur.execute(sql, tuple(params))
-
         ds.extend(cur.fetchall())
 
     ds.sort(
@@ -2503,6 +2499,160 @@ def luu_phan_loai(
 
         close_connection(conn)
 
+def luu_phan_loai_hang_mua(
+    kho_hang_mua_id,
+    ds_phan_loai
+):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    try:
+
+        # Lấy chi tiết phiếu nhập
+        cur.execute("""
+            SELECT
+                chi_tiet_phieu_nhap_id
+            FROM kho_hang_mua
+            WHERE id=%s
+        """, (kho_hang_mua_id,))
+
+        row = cur.fetchone()
+
+        if row is None:
+            raise Exception("Không tìm thấy kho hàng mua.")
+
+        chi_tiet_phieu_nhap_id = row["chi_tiet_phieu_nhap_id"]
+
+        tong_so_luong = 0
+        tong_so_thanh = 0
+
+        for item in ds_phan_loai:
+
+            cur.execute("""
+                SELECT id
+                FROM phan_loai_go
+                WHERE ten=%s
+            """, (item["loai"],))
+
+            pl = cur.fetchone()
+
+            if pl is None:
+                raise Exception(
+                    f"Không tìm thấy phân loại: {item['loai']}"
+                )
+
+            so_luong = float(item.get("kg", 0) or item.get("m3", 0))
+            so_thanh = int(item.get("thanh", 0))
+
+            cur.execute("""
+                INSERT INTO kho_phan_loai(
+                    kho_kho_id,
+                    chi_tiet_phieu_nhap_id,
+                    phan_loai_go_id,
+                    day,
+                    rong,
+                    dai,
+                    so_luong,
+                    so_thanh,
+                    ngay
+                )
+                VALUES(
+                    NULL,
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    NOW()
+                )
+            """, (
+                chi_tiet_phieu_nhap_id,
+                pl["id"],
+                item["day"],
+                item["rong"],
+                item["dai"],
+                so_luong,
+                so_thanh
+            ))
+
+            tong_so_luong += so_luong
+            tong_so_thanh += so_thanh
+
+        # Trừ số lượng còn lại của hàng mua
+        cur.execute("""
+            SELECT lg.kieu_tinh
+            FROM chi_tiet_phieu_nhap ct
+            JOIN loai_go lg
+                ON ct.loai_go_id = lg.id
+            WHERE ct.id=%s
+        """, (chi_tiet_phieu_nhap_id,))
+
+        kieu = cur.fetchone()["kieu_tinh"]
+
+        if kieu == "TRONG_LUONG":
+
+            cur.execute("""
+                UPDATE chi_tiet_phieu_nhap
+                SET so_luong_con_lai =
+                    so_luong_con_lai - %s
+                WHERE id=%s
+            """, (
+                tong_so_luong,
+                chi_tiet_phieu_nhap_id
+            ))
+
+            cur.execute("""
+                SELECT so_luong_con_lai
+                FROM chi_tiet_phieu_nhap
+                WHERE id=%s
+            """, (chi_tiet_phieu_nhap_id,))
+
+            con_lai = cur.fetchone()["so_luong_con_lai"]
+
+        else:
+
+            cur.execute("""
+                UPDATE chi_tiet_phieu_nhap
+                SET
+                    so_thanh_con_lai =
+                        so_thanh_con_lai - %s,
+                    so_luong_con_lai =
+                        so_luong_con_lai - %s
+                WHERE id=%s
+            """, (
+                tong_so_thanh,
+                tong_so_luong,
+                chi_tiet_phieu_nhap_id
+            ))
+
+            cur.execute("""
+                SELECT so_thanh_con_lai
+                FROM chi_tiet_phieu_nhap
+                WHERE id=%s
+            """, (chi_tiet_phieu_nhap_id,))
+
+            con_lai = cur.fetchone()["so_thanh_con_lai"]
+
+        # Nếu phân loại hết thì xóa khỏi kho hàng mua
+        if con_lai <= 0:
+
+            cur.execute("""
+                DELETE FROM kho_hang_mua
+                WHERE id=%s
+            """, (kho_hang_mua_id,))
+
+        conn.commit()
+
+    except Exception:
+        conn.rollback()
+        raise
+
+    finally:
+        close_connection(conn)
+
 def lay_kho_da_phan_loai(
     khach_hang_id=None,
     ten_go=None,
@@ -2551,6 +2701,8 @@ def lay_kho_da_phan_loai(
                 THEN kp.so_luong
                 ELSE NULL
             END AS m3,
+
+            pn.loai_nhap,
             ct.don_gia,
             ct.thanh_tien
 
@@ -2571,7 +2723,12 @@ def lay_kho_da_phan_loai(
         JOIN phan_loai_go pl
             ON kp.phan_loai_go_id = pl.id
 
-        WHERE 1=1
+        WHERE
+            (
+                (lg.kieu_tinh = 'TRONG_LUONG' AND kp.so_luong > 0)
+                OR
+                (lg.kieu_tinh = 'M3' AND kp.so_thanh > 0)
+            )
     """
 
     params = []
@@ -2585,7 +2742,7 @@ def lay_kho_da_phan_loai(
 
         sql += " AND lg.ten=%s"
         params.append(ten_go)
-    
+
     if phan_loai_go_id is not None:
 
         sql += " AND pl.id=%s"
@@ -3776,14 +3933,12 @@ def luu_phieu_xuat(
             if kho is None:
                 raise Exception("Không tìm thấy lô gỗ.")
 
-            # Không cho xuất âm
             if item["so_luong"] <= 0:
                 raise Exception("Số lượng xuất không hợp lệ.")
 
             if item["so_thanh"] < 0:
                 raise Exception("Số thanh xuất không hợp lệ.")
 
-            # Kiểm tra tồn
             if item["so_luong"] > kho["so_luong"]:
                 raise Exception("Số lượng xuất vượt tồn kho.")
 
@@ -3797,14 +3952,18 @@ def luu_phieu_xuat(
                     phieu_xuat_id,
                     kho_phan_loai_id,
                     so_luong,
-                    so_thanh
+                    so_thanh,
+                    don_gia_ban,
+                    thanh_tien
                 )
-                VALUES(%s,%s,%s,%s)
+                VALUES(%s,%s,%s,%s,%s,%s)
             """, (
                 phieu_xuat_id,
                 item["kho_phan_loai_id"],
                 item["so_luong"],
-                item["so_thanh"]
+                item["so_thanh"],
+                item.get("don_gia_ban"),
+                item.get("thanh_tien")
             ))
 
             # Trừ tồn
@@ -3823,36 +3982,6 @@ def luu_phieu_xuat(
                 item["so_thanh"],
                 item["kho_phan_loai_id"]
             ))
-            # Nếu lô đã hết thì xóa khỏi kho
-            cur.execute("""
-                SELECT
-                    so_luong,
-                    so_thanh
-                FROM kho_phan_loai
-                WHERE id=%s
-            """, (item["kho_phan_loai_id"],))
-
-            ton = cur.fetchone()
-
-            if ton:
-
-                # Gỗ tính theo m3
-                if ton["so_thanh"] is not None:
-
-                    if ton["so_thanh"] <= 0:
-                        cur.execute("""
-                            DELETE FROM kho_phan_loai
-                            WHERE id=%s
-                        """, (item["kho_phan_loai_id"],))
-
-                # Gỗ tính theo kg
-                else:
-
-                    if ton["so_luong"] <= 0:
-                        cur.execute("""
-                            DELETE FROM kho_phan_loai
-                            WHERE id=%s
-                        """, (item["kho_phan_loai_id"],))
 
         conn.commit()
 
@@ -3969,7 +4098,11 @@ def lay_chi_tiet_phieu_xuat(phieu_xuat_id):
                 WHEN lg.kieu_tinh='M3'
                 THEN ctx.so_luong
                 ELSE NULL
-            END AS m3
+            END AS m3,
+
+            ctx.don_gia_ban,
+
+            ctx.thanh_tien
 
         FROM chi_tiet_phieu_xuat ctx
 

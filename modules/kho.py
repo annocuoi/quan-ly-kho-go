@@ -18,6 +18,7 @@ from database.db import (
     lay_ds_quy_cach_da_phan_loai,
     lay_chi_tiet_nhap_hang_kho,
     lay_kho_hang_mua,  
+    luu_phan_loai_hang_mua
 )
 
 def chon_lo():
@@ -45,9 +46,53 @@ def chon_lo():
                 f"{int(row['thanh']):,} thanh | "
                 f"{row['m3']:.3f} m³"
             )
+        
+        row["nguon"] = "KHO_KHO"
         lua_chon[text] = row
 
     chon = st.selectbox("Chọn lô", list(lua_chon.keys()))
+    return lua_chon[chon]
+
+def chon_lo_hang_mua():
+
+    ds = lay_kho_hang_mua(None, None)
+
+    if len(ds) == 0:
+        st.info("Không còn lô nào.")
+        return None
+
+    lua_chon = {}
+
+    for row in ds:
+
+        if row["kg"] is not None:
+
+            text = (
+                f"Phiếu: {row['so_phieu']} | "
+                f"Khách: {row['khach_hang']} | "
+                f"Gỗ: {row['ten']} | "
+                f"Kg: {float(row['kg']):,.0f}"
+            )
+
+        else:
+
+            text = (
+                f"Phiếu: {row['so_phieu']} | "
+                f"Khách: {row['khach_hang']} | "
+                f"Gỗ: {row['ten']} | "
+                f"{int(row['day'])}×{int(row['rong'])}×{int(row['dai'])} | "
+                f"{int(row['thanh']):,} thanh | "
+                f"{row['m3']:.3f} m³"
+            )
+
+        row["nguon"] = "HANG_MUA"
+        lua_chon[text] = row
+
+    chon = st.selectbox(
+        "Chọn lô",
+        list(lua_chon.keys())
+    )
+
     return lua_chon[chon]
 
 def hien_thi_thong_tin_lo(lo):
@@ -118,97 +163,112 @@ def nhap_phan_loai(lo):
         da_phan = sum(float(x.get("kg", 0)) for x in st.session_state.ds_phan_loai)      
     else:
         so_luong = st.number_input("Số thanh phân loại", min_value=1, step=1, key=input_key)
+        m3 = round(
+            day *
+            rong *
+            dai *
+            so_luong /
+            1000000000,
+            6
+        )
+
+        st.info(f"Thể tích: {m3:.3f} m³")
         da_thanh = sum(int(x.get("thanh", 0)) for x in st.session_state.ds_phan_loai)
 
     if st.button("➕ Thêm phân loại", use_container_width=True, type="primary"):
+
+        loi = False
 
         if lo_kg_float is not None:
 
             if round(so_luong + da_phan, 2) > round(lo_kg_float, 2):
                 st.error("❌ Vượt số kg còn lại.")
-                st.stop()
+                loi = True
 
         else:
 
             if so_luong + da_thanh > int(lo["thanh"]):
                 st.error("❌ Vượt số thanh còn lại.")
-                st.stop()
+                loi = True
 
-        da_co = False
+        if not loi:
 
-        for item in st.session_state.ds_phan_loai:
-            if item["loai"] == ten_phan_loai:
+            da_co = False
 
-                item["day"] = day
-                item["rong"] = rong
-                item["dai"] = dai
+            for item in st.session_state.ds_phan_loai:
+
+                if item["loai"] == ten_phan_loai:
+
+                    item["day"] = day
+                    item["rong"] = rong
+                    item["dai"] = dai
+
+                    if lo_kg_float is not None:
+
+                        item["kg"] = item.get("kg", 0) + so_luong
+
+                    else:
+
+                        item["thanh"] = item.get("thanh", 0) + so_luong
+
+                        item["m3"] = round(
+                            item["day"] *
+                            item["rong"] *
+                            item["dai"] *
+                            item["thanh"] /
+                            1000000000,
+                            6
+                        )
+
+                    da_co = True
+                    break
+
+            if not da_co:
 
                 if lo_kg_float is not None:
 
-                    item["kg"] = item.get("kg", 0) + so_luong
+                    st.session_state.ds_phan_loai.append({
+
+                        "loai": ten_phan_loai,
+
+                        "day": day,
+                        "rong": rong,
+                        "dai": dai,
+
+                        "kg": so_luong,
+                        "thanh": 0,
+                        "m3": 0
+
+                    })
 
                 else:
 
-                    item["thanh"] = item.get("thanh", 0) + so_luong
-
-                    item["m3"] = round(
-                        item["day"] *
-                        item["rong"] *
-                        item["dai"] *
-                        item["thanh"] /
+                    m3 = round(
+                        day *
+                        rong *
+                        dai *
+                        so_luong /
                         1000000000,
                         6
                     )
 
-                da_co = True
-                break
+                    st.session_state.ds_phan_loai.append({
 
-        if not da_co:
+                        "loai": ten_phan_loai,
 
-            if lo_kg_float is not None:
+                        "day": day,
+                        "rong": rong,
+                        "dai": dai,
 
-                st.session_state.ds_phan_loai.append({
+                        "kg": 0,
+                        "thanh": so_luong,
+                        "m3": m3
 
-                    "loai": ten_phan_loai,
+                    })
 
-                    "day": day,
-                    "rong": rong,
-                    "dai": dai,
-
-                    "kg": so_luong,
-                    "thanh": 0,
-                    "m3": 0
-
-                })
-
-            else:
-
-                m3 = round(
-                    day *
-                    rong *
-                    dai *
-                    so_luong /
-                    1000000000,
-                    6
-                )
-
-                st.session_state.ds_phan_loai.append({
-
-                    "loai": ten_phan_loai,
-
-                    "day": day,
-                    "rong": rong,
-                    "dai": dai,
-
-                    "kg": 0,
-                    "thanh": so_luong,
-                    "m3": m3
-
-                })
-        
-        # Tăng trigger và ra lệnh làm mới scope cục bộ để đồng bộ ngay lập tức
-        st.session_state.dialog_refresh_trigger += 1
-        st.rerun(scope="fragment")
+            # Chỉ rerun khi thêm thành công
+            st.session_state.dialog_refresh_trigger += 1
+            st.rerun(scope="fragment")
 
     if len(st.session_state.ds_phan_loai):
         st.divider()
@@ -250,7 +310,21 @@ def nhap_phan_loai(lo):
     st.divider()
 
     if st.button("💾 Hoàn tất phân loại", use_container_width=True, type="primary"):
-        luu_phan_loai(lo["id"], st.session_state.ds_phan_loai)
+
+        if lo.get("nguon") == "HANG_MUA":
+
+            luu_phan_loai_hang_mua(
+                lo["id"],
+                st.session_state.ds_phan_loai
+            )
+
+        else:
+
+            luu_phan_loai(
+                lo["id"],
+                st.session_state.ds_phan_loai
+            )
+
         st.session_state.ds_phan_loai = []
         st.success("Đã phân loại thành công.")
         st.rerun(scope="app")
@@ -269,7 +343,23 @@ def dialog_phan_loai():
 
     hien_thi_thong_tin_lo(lo)
     nhap_phan_loai(lo)
-    
+
+@st.dialog("📦 Phân loại hàng mua", width="large")
+def dialog_phan_loai_hang_mua():
+
+    if "ds_phan_loai" not in st.session_state:
+        st.session_state.ds_phan_loai = []
+
+    if "dialog_refresh_trigger" not in st.session_state:
+        st.session_state.dialog_refresh_trigger = 0
+
+    lo = chon_lo_hang_mua()
+    if lo is None:
+        return
+
+    hien_thi_thong_tin_lo(lo)
+    nhap_phan_loai(lo)
+
 def show():
     if "tab_nhom" not in st.session_state:
         st.session_state.tab_nhom = "gia_cong"
@@ -767,6 +857,7 @@ def show():
             df["Ngày nhập"] = pd.to_datetime(
                 df["Ngày nhập"]
             ).dt.strftime("%d/%m/%Y")
+
             df["Kiểu tính"] = df["Kiểu tính"].replace({
                 "M3": "Khối (m³)",
                 "TRONG_LUONG": "Trọng lượng (Kg)"
@@ -845,7 +936,7 @@ def show():
             type="primary",
             use_container_width=True
         ):
-            pass
+            dialog_phan_loai_hang_mua()
 
     elif st.session_state.tab_nhom == "da_phan_loai":
         st.subheader("🟤 Kho khô đã phân loại")
@@ -991,13 +1082,18 @@ def show():
             "dai": "Dài",
             "kg": "Kg",
             "thanh": "Thanh",
-            "m3": "M³",
-            "don_gia": "Đơn giá",
-            "thanh_tien": "Thành tiền"
+            "m3": "M³"
+            #"don_gia": "Đơn giá",
+            #"thanh_tien": "Thành tiền"
+        })
+        df["Nguồn"] = df["loai_nhap"].map({
+            "TUOI": "🌲 Gia công",
+            "KHO": "📦 Hàng mua"
         })
 
         df = df[
             [
+                "Nguồn",
                 "Ngày",
                 "Phiếu",
                 "Khách",
@@ -1008,9 +1104,7 @@ def show():
                 "Dài",
                 "Kg",
                 "Thanh",
-                "M³",
-                "Đơn giá",
-                "Thành tiền"
+                "M³"
             ]
         ]
 
@@ -1038,10 +1132,10 @@ def show():
         tong_kg = pd.to_numeric(df["Kg"], errors="coerce").fillna(0).sum()
         tong_thanh = pd.to_numeric(df["Thanh"], errors="coerce").fillna(0).sum()
         tong_m3 = pd.to_numeric(df["M³"], errors="coerce").fillna(0).sum()
-        tong_tien = pd.to_numeric(
-            df["Thành tiền"].astype(str).str.replace(",", ""),
-            errors="coerce"
-        ).fillna(0).sum()
+        #tong_tien = pd.to_numeric(
+            #df["Thành tiền"].astype(str).str.replace(",", ""),
+            #errors="coerce"
+        #).fillna(0).sum()
 
 
         df["Kg"] = df["Kg"].apply(
@@ -1055,17 +1149,18 @@ def show():
         df["M³"] = df["M³"].apply(
             lambda x: "" if pd.isna(x) else f"{float(x):.3f}"
         )
-        df["Đơn giá"] = df["Đơn giá"].apply(
-            lambda x: "" if pd.isna(x) else f"{x:,.0f}"
-        )
+        #df["Đơn giá"] = df["Đơn giá"].apply(
+            #lambda x: "" if pd.isna(x) else f"{x:,.0f}"
+        #)
 
-        df["Thành tiền"] = df["Thành tiền"].apply(
-            lambda x: "" if pd.isna(x) else f"{x:,.0f}"
-        )
+        #df["Thành tiền"] = df["Thành tiền"].apply(
+         #   lambda x: "" if pd.isna(x) else f"{x:,.0f}"
+        #)
 
 
         df.loc[len(df)] = {
             "STT": "",
+            "Nguồn": "",
             "Ngày": "",
             "Phiếu": "",
             "Khách": "",
@@ -1076,15 +1171,20 @@ def show():
             "Dài": "",
             "Kg": f"{tong_kg:,.0f}" if tong_kg else "",
             "Thanh": f"{tong_thanh:,.0f}" if tong_thanh else "",
-            "M³": f"{tong_m3:.3f}" if tong_m3 else "",
-            "Đơn giá": "",
-            "Thành tiền": f"{tong_tien:,.0f}" if tong_tien else ""
+            "M³": f"{tong_m3:.3f}" if tong_m3 else ""
+            #"Đơn giá": "",
+            #"Thành tiền": f"{tong_tien:,.0f}" if tong_tien else ""
         }
 
         ten_qc = ", ".join(chon_qc) if chon_qc else "Tất cả"
 
+        df_pdf = df.copy()
+
+        if "Nguồn" in df_pdf.columns:
+            df_pdf.drop(columns=["Nguồn"], inplace=True)
+
         pdf = tao_pdf_kho_da_phan_loai(
-            df,
+            df_pdf,
             ten_kh,
             ten_go if ten_go else "Tất cả",
             ten_qc
@@ -1096,7 +1196,7 @@ def show():
             buffer,
             engine="openpyxl"
         ) as writer:
-            df.to_excel(
+            df_pdf.to_excel(
                 writer,
                 index=False,
                 sheet_name="Kho đã phân loại"

@@ -72,6 +72,11 @@ def show():
 
             df = pd.DataFrame(ds_kho)
 
+            df["Nguồn"] = df["loai_nhap"].map({
+                "TUOI": "🌲 Gia công",
+                "KHO": "📦 Hàng mua"
+            })
+
             df = df.rename(columns={
                 "ten": "Loại gỗ",
                 "phan_loai": "Phân loại",
@@ -82,10 +87,12 @@ def show():
                 "m3": "m³",
                 "kg": "Kg"
             })
+            df = df.fillna("")
 
             st.dataframe(
                 df[
                     [
+                        "Nguồn",
                         "Loại gỗ",
                         "Phân loại",
                         "Dày",
@@ -99,14 +106,19 @@ def show():
                 use_container_width=True,
                 hide_index=True
             )
-            st.markdown("### 📤 Chọn lô xuất")
-
             lo = st.selectbox(
                 "Lô gỗ",
                 ds_kho,
                 key="lo_xuat",
-                format_func=lambda x:
-                    f'{x["ten"]} | {x["phan_loai"]} | {int(x["day"])}x{int(x["rong"])}x{int(x["dai"])}'
+                format_func=lambda x: (
+                    f'{"📦 Hàng mua" if x["loai_nhap"]=="KHO" else "🌲 Gia công"} | '
+                    f'{x["ten"]} | {x["phan_loai"]} | '
+                    f'{int(x["day"])}x{int(x["rong"])}x{int(x["dai"])}'
+                    if x["kieu_tinh"] == "M3"
+                    else
+                    f'{"📦 Hàng mua" if x["loai_nhap"]=="KHO" else "🌲 Gia công"} | '
+                    f'{x["ten"]} | {x["phan_loai"]} | Kg'
+                )
             )
             # Số lượng đã chọn xuất của lô này
             thanh_da_chon = 0
@@ -120,8 +132,12 @@ def show():
                     m3_da_chon = item["so_luong"]
                     break
 
-            thanh_con = lo["thanh"] - thanh_da_chon
-            m3_con = lo["m3"] - m3_da_chon
+            if lo["kieu_tinh"] == "M3":
+                thanh_con = lo["thanh"] - thanh_da_chon
+                m3_con = lo["m3"] - m3_da_chon
+            else:
+                thanh_con = 0
+                m3_con = 0
 
             col1, col2 = st.columns(2)
 
@@ -145,12 +161,16 @@ def show():
                     )
 
             st.divider()
+            co_the_them = True
 
             if lo["kieu_tinh"] == "M3":
 
-                col1, col2 = st.columns(2)
+                if thanh_con <= 0:
 
-                with col1:
+                    st.warning("Lô này đã hết.")
+                    co_the_them = False
+
+                else:
 
                     so_thanh = st.number_input(
                         "Số thanh xuất",
@@ -160,24 +180,45 @@ def show():
                         step=1
                     )
 
-                so_luong = (
-                    float(lo["m3"])
-                    * so_thanh
-                    / float(lo["thanh"])
-                )
-                
+                    so_luong = (
+                        float(lo["m3"])
+                        * so_thanh
+                        / float(lo["thanh"])
+                    )
+
             else:
 
-                so_thanh = 0
+                if lo["kg"] <= 0:
 
-                so_luong = st.number_input(
-                    "Kg xuất",
+                    st.warning("Lô này đã hết.")
+                    co_the_them = False
+
+                else:
+
+                    so_thanh = 0
+
+                    so_luong = st.number_input(
+                        "Kg xuất",
+                        min_value=0.0,
+                        max_value=float(lo["kg"]),
+                        value=0.0,
+                        step=1.0
+                    )
+            
+            if lo["loai_nhap"] == "KHO":
+
+                don_gia_ban = st.number_input(
+                    "Đơn giá bán",
                     min_value=0.0,
-                    max_value=float(lo["kg"]),
-                    value=0.0
+                    value=float(lo["don_gia"]),
+                    step=1000.0
                 )
 
-            if st.button(
+            else:
+
+                don_gia_ban = 0
+
+            if co_the_them and st.button(
                 "➕ Thêm vào phiếu",
                 use_container_width=True
             ):
@@ -186,14 +227,15 @@ def show():
 
                 for item in st.session_state.ds_xuat:
 
-                    if item["kho_phan_loai_id"] == lo["kho_phan_loai_id"]:
+                    if item["kho_phan_loai_id"] != lo["kho_phan_loai_id"]:
+                        continue
+
+                    if lo["kieu_tinh"] == "M3":
 
                         thanh_moi = item["so_thanh"] + so_thanh
 
                         if thanh_moi > lo["thanh"]:
-
                             st.error("Xuất vượt số thanh còn.")
-
                             st.stop()
 
                         item["so_thanh"] = thanh_moi
@@ -204,12 +246,26 @@ def show():
                             / float(lo["thanh"])
                         )
 
-                        da_co = True
-                        break
+                    else:
 
+                        kg_moi = item["so_luong"] + so_luong
+
+                        if kg_moi > lo["kg"]:
+                            st.error("Xuất vượt số kg còn.")
+                            st.stop()
+
+                        item["so_luong"] = kg_moi
+    
+                    if lo["loai_nhap"] == "KHO":
+                        item["don_gia_ban"] = don_gia_ban
+                        item["thanh_tien"] = item["so_luong"] * don_gia_ban
+
+                    da_co = True
+                    break
+                
                 if not da_co:
 
-                    st.session_state.ds_xuat.append({
+                    item = {
 
                         "kho_phan_loai_id": lo["kho_phan_loai_id"],
 
@@ -225,9 +281,21 @@ def show():
 
                         "so_thanh": so_thanh,
 
-                        "so_luong": so_luong
+                        "so_luong": so_luong,
 
-                    })
+                        "loai_nhap": lo["loai_nhap"]
+
+                    }
+
+                    if lo["loai_nhap"] == "KHO":
+
+                        item["don_gia_ban"] = don_gia_ban
+
+                        if lo["kieu_tinh"] == "M3":
+                            item["thanh_tien"] = so_luong * don_gia_ban
+                        else:
+                            item["thanh_tien"] = so_luong * don_gia_ban
+                    st.session_state.ds_xuat.append(item)
 
                 st.rerun()
         
@@ -239,8 +307,8 @@ def show():
 
                 for i, item in enumerate(st.session_state.ds_xuat):
 
-                    c1, c2, c3, c4, c5, c6 = st.columns(
-                        [3, 2, 1, 1, 1, 0.8]
+                    c1, c2, c3, c4, c5, c6, c7, c8 = st.columns(
+                        [3,2,1,1,1,1.2,1.2,0.8]
                     )
 
                     with c1:
@@ -250,17 +318,40 @@ def show():
                         st.write(item["phan_loai"])
 
                     with c3:
-                        st.write(
-                            f'{int(item["day"])}x{int(item["rong"])}x{int(item["dai"])}'
-                        )
+                        if item["day"] is not None:
+                            st.write(
+                                f'{int(item["day"])}x{int(item["rong"])}x{int(item["dai"])}'
+                            )
+                        else:
+                            st.write("Kg")
 
                     with c4:
-                        st.write(f'{item["so_thanh"]} thanh')
+                        if item["day"] is not None:
+                            st.write(f'{item["so_thanh"]} thanh')
+                        else:
+                            st.write("-")
 
                     with c5:
-                        st.write(f'{item["so_luong"]:.3f} m³')
+                        if item["day"] is not None:
+                            st.write(f'{item["so_luong"]:.3f} m³')
+                        else:
+                            st.write(f'{item["so_luong"]:.3f} kg')
 
                     with c6:
+
+                        if item["loai_nhap"] == "KHO":
+                            st.write(f'{item["don_gia_ban"]:,.0f}')
+                        else:
+                            st.write("-")
+
+                    with c7:
+
+                        if item["loai_nhap"] == "KHO":
+                            st.write(f'{item["thanh_tien"]:,.0f}')
+                        else:
+                            st.write("-")
+
+                    with c8:
 
                         if st.button(
                             "❌",
@@ -398,6 +489,40 @@ def show():
                 st.subheader("📦 Chi tiết phiếu xuất")
 
                 df = pd.DataFrame(ct)
+
+                df = df.rename(columns={
+                    "id": "Mã",
+                    "ten": "Tên gỗ",
+                    "kieu_tinh": "Kiểu tính",
+                    "day": "Dày",
+                    "rong": "Rộng",
+                    "dai": "Dài",
+                    "phan_loai": "Phân loại",
+                    "so_thanh": "Số thanh",
+                    "kg": "Kg",
+                    "m3": "m³",
+                    "don_gia_ban": "Đơn giá",
+                    "thanh_tien": "Thành tiền"
+                })
+
+                tong = {
+                    "Mã": "",
+                    "Tên gỗ": "TỔNG CỘNG",
+                    "Kiểu tính": "",
+                    "Dày": "",
+                    "Rộng": "",
+                    "Dài": "",
+                    "Phân loại": "",
+                    "Số thanh": df["Số thanh"].fillna(0).sum(),
+                    "Kg": df["Kg"].fillna(0).sum(),
+                    "m³": df["m³"].fillna(0).sum(),
+                    "Đơn giá": "",
+                    "Thành tiền": df["Thành tiền"].fillna(0).sum()
+                }
+
+                df.loc[len(df)] = tong
+
+                df = df.fillna("")
 
                 st.dataframe(
                     df,
