@@ -124,6 +124,8 @@ def tao_database():
 
             loai_go_id INTEGER NOT NULL,
 
+            phan_loai_go_id INTEGER,
+
             so_thanh INTEGER,
 
             so_thanh_con_lai INTEGER,
@@ -143,7 +145,10 @@ def tao_database():
                 ON DELETE CASCADE,
 
             FOREIGN KEY(loai_go_id)
-                REFERENCES loai_go(id)
+                REFERENCES loai_go(id),
+
+            FOREIGN KEY(phan_loai_go_id)
+                REFERENCES phan_loai_go(id)
 
         )
     """)
@@ -228,63 +233,6 @@ def tao_database():
 
             FOREIGN KEY(chi_tiet_phieu_nhap_id)
                 REFERENCES chi_tiet_phieu_nhap(id)
-                ON DELETE CASCADE
-
-        )
-    """)
-
-    # =========================
-    # CÔNG NỢ
-    # =========================
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS cong_no(
-
-            id SERIAL PRIMARY KEY,
-
-            khach_hang_id INTEGER NOT NULL,
-
-            ngay DATE NOT NULL,
-
-            loai VARCHAR(30) NOT NULL,
-
-            so_tien DOUBLE PRECISION NOT NULL,
-
-            phieu_nhap_id INTEGER,
-
-            phieu_xuat_id INTEGER,
-
-            ghi_chu TEXT,
-
-            FOREIGN KEY(khach_hang_id)
-                REFERENCES khach_hang(id)
-                ON DELETE CASCADE,
-
-            FOREIGN KEY(phieu_nhap_id)
-                REFERENCES phieu_nhap(id)
-                ON DELETE CASCADE,
-
-            FOREIGN KEY(phieu_xuat_id)
-                REFERENCES phieu_xuat(id)
-                ON DELETE CASCADE
-
-        )
-    """)
-
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS thanh_toan(
-
-            id SERIAL PRIMARY KEY,
-
-            cong_no_id INTEGER NOT NULL,
-
-            ngay DATE NOT NULL,
-
-            so_tien DOUBLE PRECISION NOT NULL,
-
-            ghi_chu TEXT,
-
-            FOREIGN KEY(cong_no_id)
-                REFERENCES cong_no(id)
                 ON DELETE CASCADE
 
         )
@@ -391,6 +339,63 @@ def tao_database():
 
             FOREIGN KEY(kho_phan_loai_id)
                 REFERENCES kho_phan_loai(id)
+
+        )
+    """)
+
+    # =========================
+    # CÔNG NỢ
+    # =========================
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS cong_no(
+
+            id SERIAL PRIMARY KEY,
+
+            khach_hang_id INTEGER NOT NULL,
+
+            ngay DATE NOT NULL,
+
+            loai VARCHAR(30) NOT NULL,
+
+            so_tien DOUBLE PRECISION NOT NULL,
+
+            phieu_nhap_id INTEGER,
+
+            phieu_xuat_id INTEGER,
+
+            ghi_chu TEXT,
+
+            FOREIGN KEY(khach_hang_id)
+                REFERENCES khach_hang(id)
+                ON DELETE CASCADE,
+
+            FOREIGN KEY(phieu_nhap_id)
+                REFERENCES phieu_nhap(id)
+                ON DELETE CASCADE,
+
+            FOREIGN KEY(phieu_xuat_id)
+                REFERENCES phieu_xuat(id)
+                ON DELETE CASCADE
+
+        )
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS thanh_toan(
+
+            id SERIAL PRIMARY KEY,
+
+            cong_no_id INTEGER NOT NULL,
+
+            ngay DATE NOT NULL,
+
+            so_tien DOUBLE PRECISION NOT NULL,
+
+            ghi_chu TEXT,
+
+            FOREIGN KEY(cong_no_id)
+                REFERENCES cong_no(id)
+                ON DELETE CASCADE
 
         )
     """)
@@ -2155,6 +2160,7 @@ def lay_kho_kho(
             kk.id,
 
             pn.ngay,
+
             pn.so_phieu,
 
             kh.ten AS khach_hang,
@@ -3186,16 +3192,29 @@ def sua_cong_no(
     conn.commit()
     close_connection(conn)
 
-def xoa_cong_no(phieu_nhap_id):
+def xoa_cong_no(
+    phieu_nhap_id=None,
+    phieu_xuat_id=None
+):
 
     conn = get_connection()
     cur = conn.cursor()
 
-    cur.execute("""
-        DELETE
-        FROM cong_no
-        WHERE phieu_nhap_id=%s
-    """, (phieu_nhap_id,))
+    if phieu_nhap_id is not None:
+
+        cur.execute("""
+            DELETE
+            FROM cong_no
+            WHERE phieu_nhap_id=%s
+        """, (phieu_nhap_id,))
+
+    elif phieu_xuat_id is not None:
+
+        cur.execute("""
+            DELETE
+            FROM cong_no
+            WHERE phieu_xuat_id=%s
+        """, (phieu_xuat_id,))
 
     conn.commit()
     close_connection(conn)
@@ -3372,70 +3391,114 @@ def lay_ds_quy_cach_da_phan_loai(ten_go):
 
 
 def lay_chi_tiet_nhap_hang_kho(phieu_id):
+
     conn = get_connection()
     cur = conn.cursor()
+
     cur.execute("""
-        SELECT 
+        SELECT
             ct.id,
+
             lg.id AS loai_go_id,
             lg.ten,
             lg.kieu_tinh,
-            kpl.phan_loai_go_id,
+
+            ct.phan_loai_go_id,
             plg.ten AS ten_phan_loai,
-            kpl.day,
-            kpl.rong,
-            kpl.dai,
+
+            lg.day,
+            lg.rong,
+            lg.dai,
+
             ct.so_thanh,
             ct.so_luong,
             ct.don_gia,
             ct.thanh_tien
+
         FROM chi_tiet_phieu_nhap ct
-        JOIN loai_go lg ON ct.loai_go_id = lg.id
-        LEFT JOIN kho_phan_loai kpl ON ct.id = kpl.chi_tiet_phieu_nhap_id
-        LEFT JOIN phan_loai_go plg ON kpl.phan_loai_go_id = plg.id
+
+        JOIN loai_go lg
+            ON ct.loai_go_id = lg.id
+
+        LEFT JOIN phan_loai_go plg
+            ON ct.phan_loai_go_id = plg.id
+
         WHERE ct.phieu_nhap_id = %s
+
         ORDER BY ct.id
     """, (phieu_id,))
-    ds = cur.fetchall()
-    close_connection(conn)
-    return ds
 
+    ds = cur.fetchall()
+
+    close_connection(conn)
+
+    return ds
 def cap_nhat_nhap_hang_kho(
-    chi_tiet_id, loai_go_id, phan_loai_go_id,
-    day, rong, dai, so_thanh, so_luong, don_gia, thanh_tien
+    chi_tiet_id,
+    loai_go_id,
+    phan_loai_go_id,
+    day,
+    rong,
+    dai,
+    so_thanh,
+    so_luong,
+    don_gia,
+    thanh_tien
 ):
+
     conn = get_connection()
     cur = conn.cursor()
+
     try:
-        # 1. Cập nhật bảng chi tiết phiếu nhập
+
+        # Cập nhật chi tiết phiếu nhập
         cur.execute("""
             UPDATE chi_tiet_phieu_nhap
             SET
-                loai_go_id=%s,
-                so_thanh=%s,
-                so_luong=%s,
-                don_gia=%s,
-                thanh_tien=%s
-            WHERE id=%s
-        """, (loai_go_id, so_thanh, so_luong, don_gia, thanh_tien, chi_tiet_id))
+                loai_go_id = %s,
+                phan_loai_go_id = %s,
+                so_thanh = %s,
+                so_luong = %s,
+                don_gia = %s,
+                thanh_tien = %s
+            WHERE id = %s
+        """, (
+            loai_go_id,
+            phan_loai_go_id,
+            so_thanh,
+            so_luong,
+            don_gia,
+            thanh_tien,
+            chi_tiet_id
+        ))
 
-        # 2. Cập nhật bảng kho đã phân loại tương ứng
+        # Nếu lô này đã được phân loại thì cập nhật luôn
         cur.execute("""
             UPDATE kho_phan_loai
             SET
-                phan_loai_go_id=%s,
-                day=%s,
-                rong=%s,
-                dai=%s,
-                so_thanh=%s,
-                so_luong=%s
-            WHERE chi_tiet_phieu_nhap_id=%s
-        """, (phan_loai_go_id, day, rong, dai, so_thanh, so_luong, chi_tiet_id))
+                phan_loai_go_id = %s,
+                day = %s,
+                rong = %s,
+                dai = %s,
+                so_thanh = %s,
+                so_luong = %s
+            WHERE chi_tiet_phieu_nhap_id = %s
+        """, (
+            phan_loai_go_id,
+            day,
+            rong,
+            dai,
+            so_thanh,
+            so_luong,
+            chi_tiet_id
+        ))
 
         conn.commit()
-    except Exception as e:
+
+    except Exception:
         conn.rollback()
-        raise e
+        raise
+
     finally:
         close_connection(conn)
 
@@ -3965,7 +4028,8 @@ def luu_phieu_xuat(
     ngay,
     khach_hang_id,
     ghi_chu,
-    ds_hang
+    ds_hang,
+    phieu_xuat_id=None
 ):
 
     if not ds_hang:
@@ -3977,25 +4041,27 @@ def luu_phieu_xuat(
     try:
 
         # ==========================
-        # Tạo phiếu xuất
+        # Tạo phiếu mới nếu chưa có
         # ==========================
-        cur.execute("""
-            INSERT INTO phieu_xuat(
+        if phieu_xuat_id is None:
+
+            cur.execute("""
+                INSERT INTO phieu_xuat(
+                    so_phieu,
+                    ngay,
+                    khach_hang_id,
+                    ghi_chu
+                )
+                VALUES(%s,%s,%s,%s)
+                RETURNING id
+            """, (
                 so_phieu,
                 ngay,
                 khach_hang_id,
                 ghi_chu
-            )
-            VALUES(%s,%s,%s,%s)
-            RETURNING id
-        """, (
-            so_phieu,
-            ngay,
-            khach_hang_id,
-            ghi_chu
-        ))
+            ))
 
-        phieu_xuat_id = cur.fetchone()["id"]
+            phieu_xuat_id = cur.fetchone()["id"]
 
         tong_tien = 0
 
@@ -4027,9 +4093,8 @@ def luu_phieu_xuat(
             if item["so_luong"] > kho["so_luong"]:
                 raise Exception("Số lượng xuất vượt tồn kho.")
 
-            if kho["so_thanh"] is not None:
-                if item["so_thanh"] > kho["so_thanh"]:
-                    raise Exception("Số thanh xuất vượt tồn kho.")
+            if kho["so_thanh"] is not None and item["so_thanh"] > kho["so_thanh"]:
+                raise Exception("Số thanh xuất vượt tồn kho.")
 
             # Ghi chi tiết phiếu xuất
             cur.execute("""
@@ -4059,8 +4124,7 @@ def luu_phieu_xuat(
                 SET
                     so_luong = so_luong - %s,
                     so_thanh = CASE
-                        WHEN so_thanh IS NULL
-                        THEN NULL
+                        WHEN so_thanh IS NULL THEN NULL
                         ELSE so_thanh - %s
                     END
                 WHERE id=%s
@@ -4071,7 +4135,7 @@ def luu_phieu_xuat(
             ))
 
         # ==========================
-        # Tạo công nợ phải thu
+        # Tạo công nợ
         # ==========================
         cur.execute("""
             INSERT INTO cong_no(
@@ -4095,12 +4159,10 @@ def luu_phieu_xuat(
         conn.commit()
 
     except Exception:
-
         conn.rollback()
         raise
 
     finally:
-
         close_connection(conn)
 
 def lay_ds_phieu_xuat(
@@ -4183,7 +4245,7 @@ def lay_chi_tiet_phieu_xuat(phieu_xuat_id):
 
         SELECT
 
-            ctx.id,
+            ctx.kho_phan_loai_id,
 
             lg.ten,
 
@@ -4193,7 +4255,10 @@ def lay_chi_tiet_phieu_xuat(phieu_xuat_id):
             kp.rong,
             kp.dai,
 
+            pl.id AS phan_loai_go_id,
             pl.ten AS phan_loai,
+
+            pn.loai_nhap,
 
             ctx.so_thanh,
 
@@ -4209,6 +4274,8 @@ def lay_chi_tiet_phieu_xuat(phieu_xuat_id):
                 ELSE NULL
             END AS m3,
 
+            ct.don_gia,
+
             ctx.don_gia_ban,
 
             ctx.thanh_tien
@@ -4220,6 +4287,9 @@ def lay_chi_tiet_phieu_xuat(phieu_xuat_id):
 
         JOIN chi_tiet_phieu_nhap ct
             ON kp.chi_tiet_phieu_nhap_id = ct.id
+
+        JOIN phieu_nhap pn
+            ON ct.phieu_nhap_id = pn.id
 
         JOIN loai_go lg
             ON ct.loai_go_id = lg.id
@@ -4262,6 +4332,7 @@ def them_chi_tiet_nhap_hang_kho(
 
                 phieu_nhap_id,
                 loai_go_id,
+                phan_loai_go_id,
 
                 so_thanh,
                 so_thanh_con_lai,
@@ -4277,7 +4348,7 @@ def them_chi_tiet_nhap_hang_kho(
             )
             VALUES(
 
-                %s,%s,
+                %s,%s,%s,
                 %s,%s,
                 %s,%s,
                 %s,%s,
@@ -4289,6 +4360,7 @@ def them_chi_tiet_nhap_hang_kho(
 
             phieu_nhap_id,
             loai_go_id,
+            phan_loai_go_id,
 
             so_thanh,
             so_thanh,
@@ -4303,24 +4375,32 @@ def them_chi_tiet_nhap_hang_kho(
 
         chi_tiet_id = cur.fetchone()["id"]
 
+        print("chi_tiet_id =", chi_tiet_id)
+
+        cur.execute("""
+            SELECT phan_loai_go_id
+            FROM chi_tiet_phieu_nhap
+            WHERE id=%s
+        """, (chi_tiet_id,))
+
+        print("Sau INSERT =", cur.fetchone())
+
         cur.execute("""
             INSERT INTO kho_hang_mua(
-
                 chi_tiet_phieu_nhap_id
-
             )
             VALUES(%s)
         """, (chi_tiet_id,))
 
         conn.commit()
 
-    except Exception:
+    except Exception as e:
         conn.rollback()
+        print("LOI:", e)
         raise
 
     finally:
         close_connection(conn)
-
 def lay_phieu_xuat(id):
 
     conn = get_connection()
@@ -4332,6 +4412,9 @@ def lay_phieu_xuat(id):
             px.id,
             px.so_phieu,
             px.ngay,
+
+            px.khach_hang_id,
+
             px.ghi_chu,
 
             kh.ten AS khach_hang,
@@ -4352,6 +4435,7 @@ def lay_phieu_xuat(id):
             px.id,
             px.so_phieu,
             px.ngay,
+            px.khach_hang_id,
             px.ghi_chu,
             kh.ten
     """, (id,))
@@ -4361,3 +4445,94 @@ def lay_phieu_xuat(id):
     close_connection(conn)
 
     return data
+def sua_phieu_xuat(
+    id,
+    ngay,
+    khach_hang_id,
+    ghi_chu
+):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        UPDATE phieu_xuat
+        SET
+            ngay=%s,
+            khach_hang_id=%s,
+            ghi_chu=%s
+        WHERE id=%s
+    """, (
+        ngay,
+        khach_hang_id,
+        ghi_chu,
+        id
+    ))
+
+    conn.commit()
+    close_connection(conn)
+
+def xoa_chi_tiet_phieu_xuat(phieu_xuat_id):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        DELETE
+        FROM chi_tiet_phieu_xuat
+        WHERE phieu_xuat_id=%s
+    """, (phieu_xuat_id,))
+
+    conn.commit()
+    close_connection(conn)
+
+def xoa_phieu_xuat(id):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        DELETE
+        FROM phieu_xuat
+        WHERE id=%s
+    """, (id,))
+
+    conn.commit()
+
+    close_connection(conn)
+
+def hoan_kho_phieu_xuat(phieu_xuat_id):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT
+            kho_phan_loai_id,
+            so_luong,
+            so_thanh
+        FROM chi_tiet_phieu_xuat
+        WHERE phieu_xuat_id=%s
+    """, (phieu_xuat_id,))
+
+    ds = cur.fetchall()
+
+    for item in ds:
+
+        cur.execute("""
+            UPDATE kho_phan_loai
+            SET
+                so_luong = so_luong + %s,
+                so_thanh = CASE
+                    WHEN so_thanh IS NULL THEN NULL
+                    ELSE so_thanh + %s
+                END
+            WHERE id=%s
+        """, (
+            item["so_luong"],
+            item["so_thanh"],
+            item["kho_phan_loai_id"]
+        ))
+
+    conn.commit()
+    close_connection(conn)
