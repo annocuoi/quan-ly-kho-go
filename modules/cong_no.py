@@ -850,6 +850,7 @@ def tab_tong_hop():
         tu_ngay = st.date_input(
             "📅 Từ ngày",
             value=date.today().replace(day=1),
+            format="DD/MM/YYYY",
             key="tonghop_tungay",
         )
 
@@ -857,6 +858,7 @@ def tab_tong_hop():
         den_ngay = st.date_input(
             "📅 Đến ngày",
             value=date.today(),
+            format="DD/MM/YYYY",
             key="tonghop_denngay",
         )
 

@@ -251,6 +251,8 @@ def tao_database():
 
             phieu_nhap_id INTEGER,
 
+            phieu_xuat_id INTEGER,
+
             ghi_chu TEXT,
 
             FOREIGN KEY(khach_hang_id)
@@ -259,6 +261,10 @@ def tao_database():
 
             FOREIGN KEY(phieu_nhap_id)
                 REFERENCES phieu_nhap(id)
+                ON DELETE CASCADE,
+
+            FOREIGN KEY(phieu_xuat_id)
+                REFERENCES phieu_xuat(id)
                 ON DELETE CASCADE
 
         )
@@ -3114,6 +3120,7 @@ def them_cong_no(
     loai,
     so_tien,
     phieu_nhap_id=None,
+    phieu_xuat_id=None,
     ghi_chu=""
 ):
 
@@ -3122,20 +3129,22 @@ def them_cong_no(
 
     cur.execute("""
         INSERT INTO cong_no(
-            khach_hang_id,
-            ngay,
-            loai,
-            so_tien,
-            phieu_nhap_id,
-            ghi_chu
-        )
-        VALUES(%s,%s,%s,%s,%s,%s)
+        khach_hang_id,
+        ngay,
+        loai,
+        so_tien,
+        phieu_nhap_id,
+        phieu_xuat_id,
+        ghi_chu
+    )
+    VALUES(%s,%s,%s,%s,%s,%s,%s)
     """, (
         khach_hang_id,
         ngay,
         loai,
         so_tien,
         phieu_nhap_id,
+        phieu_xuat_id,
         ghi_chu
     ))
 
@@ -3205,7 +3214,7 @@ def lay_no_phai_thu(
 
             cn.id,
 
-            pn.so_phieu,
+            COALESCE(px.so_phieu, pn.so_phieu) AS so_phieu,
 
             cn.ngay,
 
@@ -3232,6 +3241,9 @@ def lay_no_phai_thu(
         LEFT JOIN phieu_nhap pn
             ON cn.phieu_nhap_id = pn.id
 
+        LEFT JOIN phieu_xuat px
+            ON cn.phieu_xuat_id = px.id
+
         LEFT JOIN thanh_toan tt
             ON cn.id = tt.cong_no_id
 
@@ -3257,18 +3269,16 @@ def lay_no_phai_thu(
         GROUP BY
 
             cn.id,
+            px.so_phieu,
             pn.so_phieu,
             cn.ngay,
             kh.ten,
             cn.so_tien
 
-    """
-    sql += """
-
         ORDER BY
 
             cn.ngay,
-            pn.so_phieu
+            COALESCE(px.so_phieu, pn.so_phieu)
 
     """
 
@@ -3279,7 +3289,6 @@ def lay_no_phai_thu(
     close_connection(conn)
 
     return data
-
 
 def lay_ds_ten_go():
 
@@ -3709,7 +3718,7 @@ def lay_chi_tiet_cong_no(cong_no_id):
 
             cn.so_tien,
 
-            pn.so_phieu,
+            COALESCE(px.so_phieu, pn.so_phieu) AS so_phieu,
 
             kh.ten AS khach_hang,
 
@@ -3725,6 +3734,9 @@ def lay_chi_tiet_cong_no(cong_no_id):
         LEFT JOIN phieu_nhap pn
             ON cn.phieu_nhap_id = pn.id
 
+        LEFT JOIN phieu_xuat px
+            ON cn.phieu_xuat_id = px.id
+
         LEFT JOIN thanh_toan tt
             ON cn.id = tt.cong_no_id
 
@@ -3736,6 +3748,7 @@ def lay_chi_tiet_cong_no(cong_no_id):
             cn.ngay,
             cn.so_tien,
             pn.so_phieu,
+            px.so_phieu,
             kh.ten
     """, (cong_no_id,))
 
@@ -3750,52 +3763,118 @@ def lay_chi_tiet_phieu_cong_no(cong_no_id):
     conn = get_connection()
     cur = conn.cursor()
 
+    # Xác định loại phiếu
     cur.execute("""
         SELECT
-
-            pn.so_phieu,
-
-            pn.ngay,
-
-            kh.ten AS khach_hang,
-
-            lg.ten,
-
-            lg.kieu_tinh,
-
-            lg.day,
-
-            lg.rong,
-
-            lg.dai,
-
-            ct.so_thanh,
-
-            ct.so_luong,
-
-            ct.don_gia,
-
-            ct.thanh_tien
-
-        FROM cong_no cn
-
-        JOIN phieu_nhap pn
-            ON cn.phieu_nhap_id = pn.id
-
-        JOIN khach_hang kh
-            ON pn.khach_hang_id = kh.id
-
-        JOIN chi_tiet_phieu_nhap ct
-            ON pn.id = ct.phieu_nhap_id
-
-        JOIN loai_go lg
-            ON ct.loai_go_id = lg.id
-
-        WHERE cn.id = %s
-
-        ORDER BY ct.id
-
+            phieu_nhap_id,
+            phieu_xuat_id
+        FROM cong_no
+        WHERE id=%s
     """, (cong_no_id,))
+
+    row = cur.fetchone()
+
+    # =========================
+    # Phiếu nhập
+    # =========================
+    if row["phieu_nhap_id"] is not None:
+
+        cur.execute("""
+            SELECT
+
+                pn.so_phieu,
+
+                pn.ngay,
+
+                kh.ten AS khach_hang,
+
+                lg.ten,
+
+                lg.kieu_tinh,
+
+                lg.day,
+
+                lg.rong,
+
+                lg.dai,
+
+                ct.so_thanh,
+
+                ct.so_luong,
+
+                ct.don_gia,
+
+                ct.thanh_tien
+
+            FROM phieu_nhap pn
+
+            JOIN khach_hang kh
+                ON pn.khach_hang_id = kh.id
+
+            JOIN chi_tiet_phieu_nhap ct
+                ON pn.id = ct.phieu_nhap_id
+
+            JOIN loai_go lg
+                ON ct.loai_go_id = lg.id
+
+            WHERE pn.id=%s
+
+            ORDER BY ct.id
+        """, (row["phieu_nhap_id"],))
+
+    # =========================
+    # Phiếu xuất
+    # =========================
+    else:
+
+        cur.execute("""
+            SELECT
+
+                px.so_phieu,
+
+                px.ngay,
+
+                kh.ten AS khach_hang,
+
+                lg.ten,
+
+                lg.kieu_tinh,
+
+                kp.day,
+
+                kp.rong,
+
+                kp.dai,
+
+                ctx.so_thanh,
+
+                ctx.so_luong,
+
+                ctx.don_gia_ban AS don_gia,
+
+                ctx.thanh_tien
+
+            FROM phieu_xuat px
+
+            JOIN khach_hang kh
+                ON px.khach_hang_id = kh.id
+
+            JOIN chi_tiet_phieu_xuat ctx
+                ON px.id = ctx.phieu_xuat_id
+
+            JOIN kho_phan_loai kp
+                ON ctx.kho_phan_loai_id = kp.id
+
+            JOIN chi_tiet_phieu_nhap ctn
+                ON kp.chi_tiet_phieu_nhap_id = ctn.id
+
+            JOIN loai_go lg
+                ON ctn.loai_go_id = lg.id
+
+            WHERE px.id=%s
+
+            ORDER BY ctx.id
+        """, (row["phieu_xuat_id"],))
 
     data = cur.fetchall()
 
@@ -3815,7 +3894,7 @@ def lay_chi_tiet_tong_hop(khach_hang_id):
 
             cn.loai,
 
-            pn.so_phieu,
+            COALESCE(px.so_phieu, pn.so_phieu) AS so_phieu,
 
             cn.ngay,
 
@@ -3831,6 +3910,9 @@ def lay_chi_tiet_tong_hop(khach_hang_id):
         LEFT JOIN phieu_nhap pn
             ON cn.phieu_nhap_id = pn.id
 
+        LEFT JOIN phieu_xuat px
+            ON cn.phieu_xuat_id = px.id
+
         LEFT JOIN thanh_toan tt
             ON cn.id = tt.cong_no_id
 
@@ -3841,6 +3923,7 @@ def lay_chi_tiet_tong_hop(khach_hang_id):
             cn.id,
             cn.loai,
             pn.so_phieu,
+            px.so_phieu,
             cn.ngay,
             cn.so_tien
 
@@ -3848,7 +3931,7 @@ def lay_chi_tiet_tong_hop(khach_hang_id):
 
             cn.loai,
             cn.ngay,
-            pn.so_phieu
+            COALESCE(px.so_phieu, pn.so_phieu)
 
     """, (khach_hang_id,))
 
@@ -3914,6 +3997,8 @@ def luu_phieu_xuat(
 
         phieu_xuat_id = cur.fetchone()["id"]
 
+        tong_tien = 0
+
         # ==========================
         # Chi tiết xuất
         # ==========================
@@ -3966,6 +4051,8 @@ def luu_phieu_xuat(
                 item.get("thanh_tien")
             ))
 
+            tong_tien += float(item.get("thanh_tien", 0) or 0)
+
             # Trừ tồn
             cur.execute("""
                 UPDATE kho_phan_loai
@@ -3982,6 +4069,28 @@ def luu_phieu_xuat(
                 item["so_thanh"],
                 item["kho_phan_loai_id"]
             ))
+
+        # ==========================
+        # Tạo công nợ phải thu
+        # ==========================
+        cur.execute("""
+            INSERT INTO cong_no(
+                khach_hang_id,
+                ngay,
+                loai,
+                so_tien,
+                phieu_xuat_id,
+                ghi_chu
+            )
+            VALUES(%s,%s,%s,%s,%s,%s)
+        """, (
+            khach_hang_id,
+            ngay,
+            "CONG_SAY",
+            tong_tien,
+            phieu_xuat_id,
+            f"Phiếu xuất {so_phieu}"
+        ))
 
         conn.commit()
 
@@ -4211,3 +4320,44 @@ def them_chi_tiet_nhap_hang_kho(
 
     finally:
         close_connection(conn)
+
+def lay_phieu_xuat(id):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT
+
+            px.id,
+            px.so_phieu,
+            px.ngay,
+            px.ghi_chu,
+
+            kh.ten AS khach_hang,
+
+            COALESCE(SUM(ctx.thanh_tien),0) AS tong_tien
+
+        FROM phieu_xuat px
+
+        JOIN khach_hang kh
+            ON px.khach_hang_id = kh.id
+
+        LEFT JOIN chi_tiet_phieu_xuat ctx
+            ON px.id = ctx.phieu_xuat_id
+
+        WHERE px.id=%s
+
+        GROUP BY
+            px.id,
+            px.so_phieu,
+            px.ngay,
+            px.ghi_chu,
+            kh.ten
+    """, (id,))
+
+    data = cur.fetchone()
+
+    close_connection(conn)
+
+    return data

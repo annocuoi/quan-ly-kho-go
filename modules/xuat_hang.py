@@ -1,5 +1,7 @@
 import streamlit as st
 import pandas as pd
+import io
+from openpyxl import Workbook
 
 from database.db import (
     lay_so_phieu_xuat_moi,
@@ -7,23 +9,505 @@ from database.db import (
     lay_kho_da_phan_loai,
     luu_phieu_xuat,
     lay_ds_phieu_xuat,
-    lay_chi_tiet_phieu_xuat
+    lay_chi_tiet_phieu_xuat,
+    lay_phieu_xuat
+)
+from reportlab.platypus import (
+    SimpleDocTemplate,
+    Table,
+    TableStyle,
+    Paragraph,
+    Spacer
+)
+
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.enums import TA_CENTER
+from reportlab.lib.styles import ParagraphStyle
+import os
+
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfbase.pdfmetrics import registerFontFamily
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+pdfmetrics.registerFont(
+    TTFont("DejaVu", os.path.join(BASE_DIR, "fonts", "DejaVuSans.ttf"))
+)
+
+pdfmetrics.registerFont(
+    TTFont("DejaVu-Bold", os.path.join(BASE_DIR, "fonts", "DejaVuSans-Bold.ttf"))
+)
+
+registerFontFamily(
+    "DejaVu",
+    normal="DejaVu",
+    bold="DejaVu-Bold",
+    italic="DejaVu",
+    boldItalic="DejaVu-Bold",
 )
 
 
+
+def tao_excel_xuat(phieu, df):
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Phiếu xuất"
+
+    ws.append(["PHIẾU XUẤT HÀNG"])
+    ws.append([])
+
+    ws.append(["Số phiếu", phieu["so_phieu"]])
+    ws.append(["Ngày", phieu["ngay"].strftime("%d/%m/%Y")])
+    ws.append(["Khách hàng", phieu["khach_hang"]])
+    ws.append(["Ghi chú", phieu["ghi_chu"] or ""])
+    ws.append([])
+
+    ws.append(list(df.columns))
+
+    for row in df.values.tolist():
+        ws.append(row)
+
+    buffer = io.BytesIO()
+
+    wb.save(buffer)
+
+    buffer.seek(0)
+
+    return buffer
+
+def tao_pdf(phieu, rows):
+    buffer = io.BytesIO()
+
+    doc = SimpleDocTemplate(buffer)
+    styles = getSampleStyleSheet()
+
+    styles["Title"].fontName = "DejaVu-Bold"
+    styles["Title"].leading = 28
+
+    styles["Normal"].fontName = "DejaVu"
+    styles["Normal"].leading = 18
+
+    from reportlab.lib.enums import TA_CENTER
+
+    center = styles["Heading2"]
+    center.fontName = "DejaVu-Bold"
+    center.alignment = TA_CENTER
+
+    elements = []
+
+    # ======= PHẦN ĐẦU =======
+
+    elements.append(Paragraph("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM", center))
+    elements.append(Paragraph("Độc lập - Tự do - Hạnh phúc", center))
+    elements.append(Paragraph("--------------------------------", center))
+
+    elements.append(Spacer(1, 15))
+
+    
+
+    elements.append(Spacer(1, 10))
+
+    elements.append(
+        Paragraph("PHIẾU XUẤT HÀNG", styles["Title"])
+    )
+    elements.append(
+        Paragraph(
+            "<b>CÔNG TY:</b> ........................................................",
+            styles["Normal"]
+        )
+    )
+
+    elements.append(Spacer(1, 15))
+
+    elements.append(
+        Paragraph(f"Số phiếu: {phieu['so_phieu']}", styles["Normal"])
+    )
+
+    elements.append(
+        Paragraph(
+            f"Ngày: {phieu['ngay'].strftime('%d/%m/%Y')}",
+            styles["Normal"]
+        )
+    )
+
+    elements.append(
+        Paragraph(
+            f"Khách hàng: <b>{phieu['khach_hang']}</b>",
+            styles["Normal"]
+        )
+    )
+
+    elements.append(Spacer(1, 10))
+
+    elements.append(
+        Paragraph(
+            (
+                f"Hôm nay, ngày {phieu['ngay'].strftime('%d')} "
+                f"tháng {phieu['ngay'].strftime('%m')} "
+                f"năm {phieu['ngay'].strftime('%Y')}."
+            ),
+            styles["Normal"]
+        )
+    )
+
+    elements.append(Spacer(1, 15))
+
+    # ======= BẢNG =======
+
+    data = [[
+        "STT",
+        "Loại gỗ",
+        "Phân loại",
+        "Dày",
+        "Rộng",
+        "Dài",
+        "Kg",
+        "Thanh",
+        "M³",
+        "Đơn giá bán",
+        "Thành tiền"
+    ]]
+
+    tong_kg = 0
+    tong_m3 = 0
+    tong_tien = 0
+
+    
+
+    cell_style = ParagraphStyle(
+        "Cell",
+        parent=styles["Normal"],
+        fontName="DejaVu",
+        fontSize=8,
+        leading=10,
+        alignment=1,
+    )
+    tong_style = ParagraphStyle(
+        "TongStyle",
+        parent=cell_style,
+        fontName="DejaVu-Bold",
+        fontSize=8,      # nhỏ hơn (có thể thử 7.5 nếu muốn)
+        leading=10,
+        alignment=1,
+    )
+    for r in rows:
+
+
+        data.append([
+            Paragraph(str(r["STT"]), cell_style),
+            Paragraph(str(r["Loại gỗ"]), cell_style),
+            Paragraph(str(r["Phân loại"]), cell_style),
+            Paragraph(str(r["Dày"]), cell_style),
+            Paragraph(str(r["Rộng"]), cell_style),
+            Paragraph(str(r["Dài"]), cell_style),
+            Paragraph(str(r["Kg"]), cell_style),
+            Paragraph(str(r["Thanh"]), cell_style),
+            Paragraph(str(r["M³"]), cell_style),
+            Paragraph(str(r["Đơn giá"]), cell_style),
+            Paragraph(str(r["Thành tiền"]).replace(" đ", ""), cell_style),
+        ])
+
+        # Tổng Kg
+        if r["Kg"] != "":
+            tong_kg += float(str(r["Kg"]).replace(",", ""))
+
+        # Tổng M3
+        if r["M³"] != "":
+            tong_m3 += float(r["M³"])
+
+        # Tổng tiền
+        tong_tien += float(
+            str(r["Thành tiền"])
+            .replace(" đ", "")
+            .replace(",", "")
+        )
+
+    # ======= DÒNG TỔNG =======
+
+    data.append([
+        Paragraph("", tong_style),
+        Paragraph("TỔNG CỘNG", tong_style),
+        Paragraph("", tong_style),
+        Paragraph("", tong_style),
+        Paragraph("", tong_style),
+        Paragraph("", tong_style),
+        Paragraph(f"{tong_kg:,.0f}" if tong_kg else "", tong_style),
+        Paragraph("", tong_style),
+        Paragraph(f"{tong_m3:.3f}" if tong_m3 else "", tong_style),
+        Paragraph("", tong_style),
+        Paragraph(f"{tong_tien:,.0f}", tong_style),
+    ])
+
+    table = Table(
+        data,
+        colWidths=[
+            25,   # STT
+            65,   # Loại gỗ
+            55,   # Phân loại
+            30,   # Dày
+            35,   # Rộng
+            40,   # Dài
+            45,   # Kg
+            45,   # Thanh
+            45,   # M3
+            60,   # Đơn giá
+            80    # Thành tiền
+        ]
+    )
+
+    table.setStyle(TableStyle([
+
+        ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+
+        ("BACKGROUND", (0, -1), (-1, -1), colors.lightgrey),
+
+        ("GRID", (0, 0), (-1, -1), 1, colors.black),
+
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+
+        ("FONTNAME", (0, 0), (-1, 0), "DejaVu-Bold"),
+        ("FONTNAME", (0, 1), (-1, -2), "DejaVu"),
+        ("FONTNAME", (0, -1), (-1, -1), "DejaVu-Bold"),
+
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+
+    ]))
+
+    elements.append(table)
+
+    elements.append(Spacer(1, 70))
+
+    # ======= CHỮ KÝ =======
+
+    ky = Table([
+        [
+            "Người lập phiếu",
+            "Khách hàng"
+        ],
+        [
+            "(Ký, ghi rõ họ tên)",
+            "(Ký, ghi rõ họ tên)"
+        ]
+    ], colWidths=[260, 260])
+
+    ky.setStyle(TableStyle([
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("FONTNAME", (0, 0), (-1, -1), "DejaVu"),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+    ]))
+
+    elements.append(ky)
+
+    doc.build(elements)
+
+    buffer.seek(0)
+
+    return buffer
+
+
 def show():
+
+    if st.session_state.get("xem_phieu_xuat") is not None:
+
+        phieu = lay_phieu_xuat(
+            st.session_state.xem_phieu_xuat
+        )
+
+        ct = lay_chi_tiet_phieu_xuat(
+            st.session_state.xem_phieu_xuat
+        )
+
+        st.header("🧾 PHIẾU XUẤT HÀNG")
+
+        if st.button("⬅ Quay lại"):
+
+            del st.session_state["xem_phieu_xuat"]
+            st.session_state.tab_xuat = "lich_su"
+            st.rerun()
+
+        st.write(f"**Số phiếu:** {phieu['so_phieu']}")
+        st.write(f"**Ngày:** {phieu['ngay'].strftime('%d/%m/%Y')}")
+        st.write(f"**Khách hàng:** {phieu['khach_hang']}")
+        st.write(f"**Ghi chú:** {phieu['ghi_chu'] or ''}")
+
+        df = pd.DataFrame(ct)
+        rows = []
+
+        for i, dong in enumerate(ct, start=1):
+
+            if dong["kieu_tinh"] == "M3":
+
+                ten_go = dong["ten"]
+
+                kg = ""
+                thanh = int(dong["so_thanh"])
+                m3 = f'{dong["m3"]:.3f}'
+
+            else:
+
+                ten_go = dong["ten"]
+
+                kg = f'{dong["kg"]:,.0f}'
+                thanh = ""
+                m3 = ""
+
+            rows.append({
+
+                "STT": i,
+
+                "Loại gỗ": ten_go,
+
+                "Phân loại": dong["phan_loai"],
+
+                "Dày": "" if dong["day"] is None else int(dong["day"]),
+
+                "Rộng": "" if dong["rong"] is None else int(dong["rong"]),
+
+                "Dài": "" if dong["dai"] is None else int(dong["dai"]),
+
+                "Kg": kg,
+
+                "Thanh": thanh,
+
+                "M³": m3,
+
+                "Đơn giá": f'{dong["don_gia_ban"]:,.0f}',
+
+                "Thành tiền": f'{dong["thanh_tien"]:,.0f} đ'
+
+            })
+
+        df = df.rename(columns={
+            "id": "Mã",
+            "ten": "Tên gỗ",
+            "kieu_tinh": "Kiểu tính",
+            "day": "Dày",
+            "rong": "Rộng",
+            "dai": "Dài",
+            "phan_loai": "Phân loại",
+            "so_thanh": "Số thanh",
+            "kg": "Kg",
+            "m3": "m³",
+            "don_gia_ban": "Đơn giá",
+            "thanh_tien": "Thành tiền"
+        })
+
+        tong = {
+            "Mã": "",
+            "Tên gỗ": "TỔNG CỘNG",
+            "Kiểu tính": "",
+            "Dày": "",
+            "Rộng": "",
+            "Dài": "",
+            "Phân loại": "",
+            "Số thanh": df["Số thanh"].fillna(0).sum(),
+            "Kg": df["Kg"].fillna(0).sum(),
+            "m³": df["m³"].fillna(0).sum(),
+            "Đơn giá": "",
+            "Thành tiền": df["Thành tiền"].fillna(0).sum()
+        }
+
+        df.loc[len(df)] = tong
+        df = df.fillna("")
+
+        excel = tao_excel_xuat(
+            phieu,
+            df
+        )
+        pdf = tao_pdf(
+            phieu,
+            rows
+        )
+
+        c1, c2 = st.columns([1,1])
+
+        with c1:
+
+            st.download_button(
+
+                "📊 Xuất Excel",
+
+                data=excel,
+
+                file_name=f'Phieu_Xuat_{phieu["so_phieu"]}.xlsx',
+
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+
+                use_container_width=True
+
+            )
+
+        with c2:
+
+            st.download_button(
+
+                "📄 Xuất PDF",
+
+                data=pdf,
+
+                file_name=f'Phieu_Xuat_{phieu["so_phieu"]}.pdf',
+
+                mime="application/pdf",
+
+                use_container_width=True
+
+            )
+
+        st.divider()
+
+        st.dataframe(
+
+            df,
+
+            use_container_width=True,
+
+            hide_index=True
+
+        )
+
+        return
 
     st.header("🚚 Xuất hàng")
 
     if "ds_xuat" not in st.session_state:
         st.session_state.ds_xuat = []
 
-    tab1, tab2 = st.tabs([
-        "📝 Lập phiếu xuất",
-        "📜 Lịch sử xuất"
-    ])
+    if "tab_xuat" not in st.session_state:
+        st.session_state.tab_xuat = "lap"
 
-    with tab1:
+    if st.session_state.tab_xuat == "lap":
+        type_lap = "primary"
+        type_ls = "secondary"
+    else:
+        type_lap = "secondary"
+        type_ls = "primary"
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+        if st.button(
+            "📝 Lập phiếu",
+            use_container_width=True,
+            type=type_lap
+        ):
+            st.session_state.tab_xuat = "lap"
+            st.rerun()
+
+    with c2:
+        if st.button(
+            "📜 Lịch sử",
+            use_container_width=True,
+            type=type_ls
+        ):
+            st.session_state.tab_xuat = "lich_su"
+            st.rerun()
+
+    if st.session_state.tab_xuat == "lap":
 
         col1, col2 = st.columns(2)
 
@@ -424,9 +908,7 @@ def show():
 
             st.info("Khách hàng chưa có hàng trong kho đã phân loại.")
 
-    with tab2:
-
-        st.header("🚚 Lịch sử xuất")
+    elif st.session_state.tab_xuat == "lich_su":
 
         ds = lay_ds_phieu_xuat()
 
@@ -466,6 +948,7 @@ def show():
                     key=f"xem_xuat_{row['id']}"
                 ):
                     st.session_state.xem_phieu_xuat = row["id"]
+                    st.session_state.tab_xuat = "lich_su"
                     st.rerun()
 
                 if c6.button(
@@ -480,58 +963,4 @@ def show():
                     key=f"xoa_xuat_{row['id']}"
                 ):
                     st.warning("Chưa làm chức năng xóa.")
-            if "xem_phieu_xuat" in st.session_state:
-
-                ct = lay_chi_tiet_phieu_xuat(
-                    st.session_state.xem_phieu_xuat
-                )
-
-                st.subheader("📦 Chi tiết phiếu xuất")
-
-                df = pd.DataFrame(ct)
-
-                df = df.rename(columns={
-                    "id": "Mã",
-                    "ten": "Tên gỗ",
-                    "kieu_tinh": "Kiểu tính",
-                    "day": "Dày",
-                    "rong": "Rộng",
-                    "dai": "Dài",
-                    "phan_loai": "Phân loại",
-                    "so_thanh": "Số thanh",
-                    "kg": "Kg",
-                    "m3": "m³",
-                    "don_gia_ban": "Đơn giá",
-                    "thanh_tien": "Thành tiền"
-                })
-
-                tong = {
-                    "Mã": "",
-                    "Tên gỗ": "TỔNG CỘNG",
-                    "Kiểu tính": "",
-                    "Dày": "",
-                    "Rộng": "",
-                    "Dài": "",
-                    "Phân loại": "",
-                    "Số thanh": df["Số thanh"].fillna(0).sum(),
-                    "Kg": df["Kg"].fillna(0).sum(),
-                    "m³": df["m³"].fillna(0).sum(),
-                    "Đơn giá": "",
-                    "Thành tiền": df["Thành tiền"].fillna(0).sum()
-                }
-
-                df.loc[len(df)] = tong
-
-                df = df.fillna("")
-
-                st.dataframe(
-                    df,
-                    use_container_width=True,
-                    hide_index=True
-                )
-
-                if st.button("Đóng"):
-
-                    del st.session_state["xem_phieu_xuat"]
-
-                    st.rerun()
+            
