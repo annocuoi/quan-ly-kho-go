@@ -108,8 +108,13 @@ def tao_pdf(phieu, rows):
 
     elements.append(Spacer(1, 10))
 
+    if phieu["loai_nhap"] == "TUOI":
+        tieu_de = "PHIẾU NHẬP HÀNG TƯƠI"
+    else:
+        tieu_de = "PHIẾU NHẬP HÀNG KHÔ"
+
     elements.append(
-        Paragraph("PHIẾU NHẬP HÀNG", styles["Title"])
+        Paragraph(tieu_de, styles["Title"])
     )
     elements.append(
         Paragraph(
@@ -413,6 +418,7 @@ def show():
             if st.button("⬅ Quay lại", use_container_width=True):
                 st.session_state.xem_phieu = None
                 st.session_state.tab_hien_tai = "📋 Lịch sử phiếu"
+                st.rerun()
         with c2:
 
             df_excel = pd.DataFrame([{

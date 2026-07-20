@@ -1543,54 +1543,38 @@ def dua_kg_hang_mua_vao_ham(
 
     conn.commit()
     close_connection(conn)
-def lay_kho_tuoi_m3():
 
+def lay_kho_tuoi_m3():
     conn = get_connection()
     cur = conn.cursor()
 
     cur.execute("""
         SELECT
             ct.id,
-
             pn.ngay,
             pn.so_phieu,
-
             kh.ten AS khach_hang,
-
             lg.ten,
-
             lg.day,
             lg.rong,
             lg.dai,
-
             ct.so_thanh_con_lai AS thanh,
             ct.so_luong_con_lai AS m3
-
         FROM chi_tiet_phieu_nhap ct
-
-        JOIN phieu_nhap pn
-            ON ct.phieu_nhap_id = pn.id
-
-        JOIN khach_hang kh
-            ON pn.khach_hang_id = kh.id
-
-        JOIN loai_go lg
-            ON ct.loai_go_id = lg.id
-
+        JOIN phieu_nhap pn ON ct.phieu_nhap_id = pn.id
+        JOIN khach_hang kh ON pn.khach_hang_id = kh.id
+        JOIN loai_go lg ON ct.loai_go_id = lg.id
         WHERE
             lg.kieu_tinh='M3'
             AND ct.trang_thai='TUOI'
             AND ct.so_thanh_con_lai > 0
-
         ORDER BY
             pn.ngay,
             pn.so_phieu
     """)
 
     data = cur.fetchall()
-
     close_connection(conn)
-
     return data
 
 def dua_m3_vao_ham(
@@ -1598,96 +1582,105 @@ def dua_m3_vao_ham(
     so_ham,
     so_thanh
 ):
-
     conn = get_connection()
     cur = conn.cursor()
 
-    # Lấy số còn lại của lô gỗ
-    cur.execute("""
-        SELECT
-            so_thanh_con_lai,
-            so_luong_con_lai
-        FROM chi_tiet_phieu_nhap
-        WHERE id=%s
-    """, (chi_tiet_id,))
-
-    row = cur.fetchone()
-
-    tong_thanh = row["so_thanh_con_lai"]
-    tong_m3 = row["so_luong_con_lai"]
-
-    # Kiểm tra nhập quá
-    if so_thanh > tong_thanh:
-
-        close_connection(conn)
-
-        raise ValueError("Số thanh vượt quá số còn lại.")
-
-    # Tính m3 tương ứng
-    m3 = tong_m3 * so_thanh / tong_thanh
-
-    # Ghi vào hầm
-    cur.execute("""
-        INSERT INTO ham_say(
-            chi_tiet_phieu_nhap_id,
-            so_ham,
-            so_thanh,
-            so_luong
-        )
-        VALUES(%s,%s,%s,%s)
-        RETURNING id
-    """, (
-        chi_tiet_id,
-        so_ham,
-        so_thanh,
-        m3
-    ))
-    ham_say_id = cur.fetchone()["id"]
-    ghi_lich_su_ham(
-        cur,
-        ham_say_id,
-        chi_tiet_id,
-        so_ham,
-        "VAO_HAM",
-        m3,
-        so_thanh,
-        "M3"
-    )
-
-    # Cập nhật số còn lại
-    cur.execute("""
-        UPDATE chi_tiet_phieu_nhap
-        SET
-            so_thanh_con_lai = so_thanh_con_lai - %s,
-            so_luong_con_lai = so_luong_con_lai - %s
-        WHERE id=%s
-    """, (
-        so_thanh,
-        m3,
-        chi_tiet_id
-    ))
-
-    # Nếu hết thì chuyển trạng thái
-    cur.execute("""
-        SELECT
-            so_thanh_con_lai
-        FROM chi_tiet_phieu_nhap
-        WHERE id=%s
-    """, (chi_tiet_id,))
-
-    con_lai = cur.fetchone()["so_thanh_con_lai"]
-
-    if con_lai <= 0:
-
+    try:
+        # Lấy số còn lại của lô gỗ
         cur.execute("""
-            UPDATE chi_tiet_phieu_nhap
-            SET trang_thai='SAY'
-            WHERE id=%s
+            SELECT
+                so_thanh_con_lai,
+                so_luong_con_lai
+            FROM chi_tiet_phieu_nhap
+            WHERE id = %s
         """, (chi_tiet_id,))
 
-    conn.commit()
+        row = cur.fetchone()
 
-    close_connection(conn)
+        if not row:
+            raise ValueError("Không tìm thấy lô gỗ trong kho tươi.")
+
+        tong_thanh = row["so_thanh_con_lai"]
+        tong_m3 = float(row["so_luong_con_lai"])
+
+        # Kiểm tra nhập quá
+        if so_thanh > tong_thanh:
+            raise ValueError("Số thanh vượt quá số còn lại trong kho tươi.")
+
+        # Tính m3 tương ứng (làm tròn 4 chữ số thập phân để tránh lỗi sai số lẻ m3)
+        m3 = round((tong_m3 * so_thanh) / tong_thanh, 4)
+
+        # Ghi vào hầm sấy
+        cur.execute("""
+            INSERT INTO ham_say(
+                chi_tiet_phieu_nhap_id,
+                so_ham,
+                so_thanh,
+                so_luong
+            )
+            VALUES(%s, %s, %s, %s)
+            RETURNING id
+        """, (
+            chi_tiet_id,
+            so_ham,
+            so_thanh,
+            m3
+        ))
+        
+        ham_say_id = cur.fetchone()["id"]
+
+        # Ghi lịch sử
+        ghi_lich_su_ham(
+            cur,
+            ham_say_id,
+            chi_tiet_id,
+            so_ham,
+            "VAO_HAM",
+            m3,
+            so_thanh,
+            "M3"
+        )
+
+        # Cập nhật số lượng còn lại ở Kho tươi
+        cur.execute("""
+            UPDATE chi_tiet_phieu_nhap
+            SET
+                so_thanh_con_lai = so_thanh_con_lai - %s,
+                so_luong_con_lai = so_luong_con_lai - %s
+            WHERE id = %s
+            RETURNING so_thanh_con_lai
+        """, (
+            so_thanh,
+            m3,
+            chi_tiet_id
+        ))
+
+        con_lai = cur.fetchone()["so_thanh_con_lai"]
+
+        # Nếu đã đưa hết (số thanh còn lại = 0) thì đổi trạng thái sang 'SAY'
+        # Ngược lại nếu còn dư (ví dụ còn 51 thanh) thì ĐẢM BẢO giữ nguyên trạng thái 'TUOI'
+        if con_lai <= 0:
+            cur.execute("""
+                UPDATE chi_tiet_phieu_nhap
+                SET trang_thai = 'SAY',
+                    so_thanh_con_lai = 0,
+                    so_luong_con_lai = 0
+                WHERE id = %s
+            """, (chi_tiet_id,))
+        else:
+            cur.execute("""
+                UPDATE chi_tiet_phieu_nhap
+                SET trang_thai = 'TUOI'
+                WHERE id = %s
+            """, (chi_tiet_id,))
+
+        conn.commit()
+
+    except Exception as e:
+        conn.rollback()
+        raise e
+    finally:
+        close_connection(conn)
 
 def dua_m3_hang_mua_vao_ham(
     kho_hang_mua_id,
@@ -1793,266 +1786,295 @@ def ra_ham(
     kg_ra=None,
     thanh_ra=None
 ):
-
     conn = get_connection()
     cur = conn.cursor()
 
-    cur.execute("""
-        SELECT
-            chi_tiet_phieu_nhap_id,
-            so_ham,
-            so_luong,
-            so_thanh
-        FROM ham_say
-        WHERE id=%s
-    """, (ham_say_id,))
+    try:
+        cur.execute("""
+            SELECT
+                chi_tiet_phieu_nhap_id,
+                so_ham,
+                so_luong,
+                so_thanh
+            FROM ham_say
+            WHERE id=%s
+        """, (ham_say_id,))
 
-    row = cur.fetchone()
-    # Đánh dấu lô này đã từng ra hầm
-    cur.execute("""
-        UPDATE ham_say
-        SET da_ra_ham = TRUE
-        WHERE id=%s
-    """, (ham_say_id,))
+        row = cur.fetchone()
+        
+        if not row:
+            raise ValueError("Không tìm thấy lô gỗ trong hầm.")
 
-    # ==========================
-    # GỖ KG
-    # ==========================
-    if row["so_thanh"] is None:
+        # Đánh dấu lô này đã từng ra hầm
+        cur.execute("""
+            UPDATE ham_say
+            SET da_ra_ham = TRUE
+            WHERE id=%s
+        """, (ham_say_id,))
 
-        tong_kg = Decimal(str(row["so_luong"]))
-        kg_ra = Decimal(str(kg_ra))
+        # ==========================
+        # GỖ KG
+        # ==========================
+        if row["so_thanh"] is None:
 
-       
-        # Kiểm tra nhập quá
-        if kg_ra > tong_kg:
-            close_connection(conn)
-            raise ValueError(f"Chỉ còn {tong_kg} kg trong hầm.")
+            tong_kg = Decimal(str(row["so_luong"]))
+            kg_ra = Decimal(str(kg_ra))
 
-        # Ra hết
-        if kg_ra == tong_kg:
+            if kg_ra > tong_kg:
+                raise ValueError(f"Chỉ còn {tong_kg} kg trong hầm.")
 
-            cur.execute("""
-                UPDATE ham_say
-                SET
-                    trang_thai='DA_SAY',
-                    ngay_ra=NOW()
-                WHERE id=%s
-            """, (ham_say_id,))
+            # Ra hết
+            if kg_ra == tong_kg:
+                cur.execute("""
+                    UPDATE ham_say
+                    SET
+                        trang_thai='DA_SAY',
+                        ngay_ra=NOW()
+                    WHERE id=%s
+                """, (ham_say_id,))
 
-            ham_say_moi = ham_say_id
+                ham_say_moi = ham_say_id
 
+            else:
+                kg_con = tong_kg - kg_ra
+
+                # Cập nhật số còn trong hầm
+                cur.execute("""
+                    UPDATE ham_say
+                    SET so_luong=%s
+                    WHERE id=%s
+                """, (
+                    kg_con,
+                    ham_say_id
+                ))
+
+                # Tạo lô đã ra
+                cur.execute("""
+                    INSERT INTO ham_say(
+                        chi_tiet_phieu_nhap_id,
+                        so_ham,
+                        so_luong,
+                        trang_thai,
+                        ngay_vao,
+                        ngay_ra
+                    )
+                    VALUES(
+                        %s,%s,%s,
+                        'DA_SAY',
+                        NOW(),
+                        NOW()
+                    )
+                    RETURNING id
+                """, (
+                    row["chi_tiet_phieu_nhap_id"],
+                    row["so_ham"],
+                    kg_ra
+                ))
+
+                ham_say_moi = cur.fetchone()["id"]
+
+        # ==========================
+        # GỖ M3
+        # ==========================
         else:
 
-            kg_con = tong_kg - kg_ra
+            tong_thanh = Decimal(str(row["so_thanh"]))
+            tong_m3 = Decimal(str(row["so_luong"]))
 
-            # Cập nhật số còn trong hầm
-            cur.execute("""
-                UPDATE ham_say
-                SET so_luong=%s
-                WHERE id=%s
-            """, (
-                kg_con,
-                ham_say_id
-            ))
+            thanh_ra = Decimal(str(thanh_ra))
+            m3_ra = Decimal("0")
 
-            # Tạo lô đã ra
-            cur.execute("""
-                INSERT INTO ham_say(
-                    chi_tiet_phieu_nhap_id,
-                    so_ham,
-                    so_luong,
-                    trang_thai,
-                    ngay_vao,
-                    ngay_ra
-                )
-                VALUES(
-                    %s,%s,%s,
-                    'DA_SAY',
-                    NOW(),
-                    NOW()
-                )
-                RETURNING id
-            """, (
-                row["chi_tiet_phieu_nhap_id"],
-                row["so_ham"],
-                kg_ra
-            ))
+            if thanh_ra > tong_thanh:
+                raise ValueError(f"Chỉ còn {tong_thanh} thanh trong hầm.")
 
-            ham_say_moi = cur.fetchone()["id"]
+            # Ra hết
+            if thanh_ra == tong_thanh:
 
-    # ==========================
-    # GỖ M3
-    # ==========================
-    else:
+                m3_ra = tong_m3
 
-        tong_thanh = row["so_thanh"]
-        tong_m3 = row["so_luong"]
+                cur.execute("""
+                    UPDATE ham_say
+                    SET
+                        trang_thai='DA_SAY',
+                        ngay_ra=NOW()
+                    WHERE id=%s
+                """, (ham_say_id,))
 
-        # Kiểm tra nhập quá
-        if thanh_ra > tong_thanh:
-            close_connection(conn)
-            raise ValueError(f"Chỉ còn {tong_thanh} thanh trong hầm.")
+                ham_say_moi = ham_say_id
 
-        # Ra hết
-        if thanh_ra == tong_thanh:
+            # Ra một phần
+            else:
 
-            cur.execute("""
-                UPDATE ham_say
-                SET
-                    trang_thai='DA_SAY',
-                    ngay_ra=NOW()
-                WHERE id=%s
-            """, (ham_say_id,))
+                m3_ra = tong_m3 * thanh_ra / tong_thanh
 
-            ham_say_moi = ham_say_id
+                m3_con = tong_m3 - m3_ra
+                thanh_con = tong_thanh - thanh_ra
 
-        else:
+                cur.execute("""
+                    UPDATE ham_say
+                    SET
+                        so_thanh=%s,
+                        so_luong=%s
+                    WHERE id=%s
+                """, (
+                    thanh_con,
+                    m3_con,
+                    ham_say_id
+                ))
 
-            m3_ra = tong_m3 * thanh_ra / tong_thanh
+                cur.execute("""
+                    INSERT INTO ham_say(
+                        chi_tiet_phieu_nhap_id,
+                        so_ham,
+                        so_thanh,
+                        so_luong,
+                        trang_thai,
+                        ngay_vao,
+                        ngay_ra
+                    )
+                    VALUES(
+                        %s,%s,%s,%s,
+                        'DA_SAY',
+                        NOW(),
+                        NOW()
+                    )
+                    RETURNING id
+                """, (
+                    row["chi_tiet_phieu_nhap_id"],
+                    row["so_ham"],
+                    thanh_ra,
+                    m3_ra
+                ))
 
-            m3_con = tong_m3 - m3_ra
+                ham_say_moi = cur.fetchone()["id"]
 
-            thanh_con = tong_thanh - thanh_ra
-
-            # Còn trong hầm
-            cur.execute("""
-                UPDATE ham_say
-                SET
-                    so_thanh=%s,
-                    so_luong=%s
-                WHERE id=%s
-            """, (
-                thanh_con,
-                m3_con,
-                ham_say_id
-            ))
-
-            # Lô đã ra
-            cur.execute("""
-                INSERT INTO ham_say(
-                    chi_tiet_phieu_nhap_id,
-                    so_ham,
-                    so_thanh,
-                    so_luong,
-                    trang_thai,
-                    ngay_vao,
-                    ngay_ra
-                )
-                VALUES(
-                    %s,%s,%s,%s,
-                    'DA_SAY',
-                    NOW(),
-                    NOW()
-                )
-                RETURNING id
-            """, (
-                row["chi_tiet_phieu_nhap_id"],
-                row["so_ham"],
-                thanh_ra,
-                m3_ra
-            ))
-
-            ham_say_moi = cur.fetchone()["id"]
-
-    # ==========================
-    # Xác định nguồn hàng
-    # ==========================
-
-    cur.execute("""
-        SELECT pn.loai_nhap
-        FROM chi_tiet_phieu_nhap ct
-        JOIN phieu_nhap pn
-            ON ct.phieu_nhap_id = pn.id
-        WHERE ct.id=%s
-    """, (row["chi_tiet_phieu_nhap_id"],))
-
-    loai_nhap = cur.fetchone()["loai_nhap"]
-
-    # ==========================
-    # Đưa về đúng kho
-    # ==========================
-
-    if loai_nhap == "TUOI":
+        # ==========================
+        # Xác định nguồn hàng
+        # ==========================
 
         cur.execute("""
-            UPDATE chi_tiet_phieu_nhap
-            SET trang_thai='KHO'
-            WHERE id=%s
+            SELECT pn.loai_nhap
+            FROM chi_tiet_phieu_nhap ct
+            JOIN phieu_nhap pn
+                ON ct.phieu_nhap_id = pn.id
+            WHERE ct.id=%s
         """, (row["chi_tiet_phieu_nhap_id"],))
 
-        cur.execute("""
-            INSERT INTO kho_kho(
-                ham_say_id
-            )
-            VALUES(%s)
-        """, (ham_say_moi,))
+        res_loai = cur.fetchone()
+        loai_nhap = res_loai["loai_nhap"] if res_loai else "TUOI"
 
-    else:
+        # ==========================
+        # Đưa về đúng kho
+        # ==========================
+
+        if loai_nhap == "TUOI":
+
+            cur.execute("""
+                SELECT
+                    so_thanh_con_lai,
+                    so_luong_con_lai
+                FROM chi_tiet_phieu_nhap
+                WHERE id=%s
+            """, (row["chi_tiet_phieu_nhap_id"],))
+
+            con = cur.fetchone()
+
+            if row["so_thanh"] is None:
+                het = con["so_luong_con_lai"] <= 0
+            else:
+                het = con["so_thanh_con_lai"] <= 0
+
+            if het:
+                cur.execute("""
+                    UPDATE chi_tiet_phieu_nhap
+                    SET trang_thai='KHO'
+                    WHERE id=%s
+                """, (row["chi_tiet_phieu_nhap_id"],))
+
+            cur.execute("""
+                INSERT INTO kho_kho(
+                    ham_say_id
+                )
+                VALUES(%s)
+            """, (ham_say_moi,))
+
+        else:
+
+            if row["so_thanh"] is None:
+
+                cur.execute("""
+                    UPDATE chi_tiet_phieu_nhap
+                    SET
+                        so_luong_con_lai = so_luong_con_lai + %s,
+                        trang_thai = 'CHO_SAY'
+                    WHERE id=%s
+                """, (
+                    kg_ra,
+                    row["chi_tiet_phieu_nhap_id"]
+                ))
+
+            else:
+
+                cur.execute("""
+                    UPDATE chi_tiet_phieu_nhap
+                    SET
+                        so_thanh_con_lai = so_thanh_con_lai + %s,
+                        so_luong_con_lai = so_luong_con_lai + %s,
+                        trang_thai = 'CHO_SAY'
+                    WHERE id=%s
+                """, (
+                    thanh_ra,
+                    m3_ra,
+                    row["chi_tiet_phieu_nhap_id"]
+                ))
+
+            cur.execute("""
+                INSERT INTO kho_hang_mua(
+                    chi_tiet_phieu_nhap_id
+                )
+                VALUES(%s)
+                ON CONFLICT (chi_tiet_phieu_nhap_id) DO NOTHING
+            """, (
+                row["chi_tiet_phieu_nhap_id"],
+            ))
+
+        # ==========================
+        # Ghi lịch sử
+        # ==========================
 
         if row["so_thanh"] is None:
 
-            cur.execute("""
-                UPDATE chi_tiet_phieu_nhap
-                SET
-                    so_luong_con_lai = so_luong_con_lai + %s,
-                    trang_thai = 'CHO_SAY'
-                WHERE id=%s
-            """, (
+            ghi_lich_su_ham(
+                cur,
+                ham_say_moi,
+                row["chi_tiet_phieu_nhap_id"],
+                row["so_ham"],
+                "RA_HAM",
                 kg_ra,
-                row["chi_tiet_phieu_nhap_id"]
-            ))
+                None,
+                "KG"
+            )
 
         else:
 
-            cur.execute("""
-                UPDATE chi_tiet_phieu_nhap
-                SET
-                    so_thanh_con_lai = so_thanh_con_lai + %s,
-                    so_luong_con_lai = so_luong_con_lai + %s,
-                    trang_thai = 'CHO_SAY'
-                WHERE id=%s
-            """, (
-                thanh_ra,
+            ghi_lich_su_ham(
+                cur,
+                ham_say_moi,
+                row["chi_tiet_phieu_nhap_id"],
+                row["so_ham"],
+                "RA_HAM",
                 m3_ra,
-                row["chi_tiet_phieu_nhap_id"]
-            ))
-    # ==========================
-    # Ghi lịch sử
-    # ==========================
+                thanh_ra,
+                "M3"
+            )
 
-    if row["so_thanh"] is None:
+        conn.commit()
 
-        ghi_lich_su_ham(
-            cur,
-            ham_say_moi,
-            row["chi_tiet_phieu_nhap_id"],
-            row["so_ham"],
-            "RA_HAM",
-            kg_ra,
-            None,
-            "KG"
-        )
-
-    else:
-
-        if thanh_ra == tong_thanh:
-            m3_ra = tong_m3
-
-        ghi_lich_su_ham(
-            cur,
-            ham_say_moi,
-            row["chi_tiet_phieu_nhap_id"],
-            row["so_ham"],
-            "RA_HAM",
-            m3_ra,
-            thanh_ra,
-            "M3"
-        )
-
-    conn.commit()
-
-    close_connection(conn)
+    except Exception as e:
+        conn.rollback()
+        raise e
+    finally:
+        close_connection(conn)
 
 def lay_kho_hang_mua(
     khach_hang_id=None,
@@ -2189,8 +2211,6 @@ def lay_kho_kho(
                 THEN hs.so_luong
                 ELSE NULL
             END AS m3,
-            ct.don_gia,
-            ct.thanh_tien,
 
             hs.ngay_vao,
             hs.ngay_ra
@@ -2215,7 +2235,7 @@ def lay_kho_kho(
         WHERE 1=1
           AND (
               (lg.kieu_tinh = 'TRONG_LUONG' AND hs.so_luong > 0)
-              OR 
+              OR
               (lg.kieu_tinh = 'M3' AND hs.so_thanh > 0)
           )
     """

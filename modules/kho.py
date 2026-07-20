@@ -671,9 +671,7 @@ def show():
                 "Thanh",
                 "M³",
                 "Ngày vào hầm",
-                "Ngày ra hầm",
-                "Đơn giá",
-                "Thành tiền"
+                "Ngày ra hầm"
             ]
             df.drop(columns=["ID"], inplace=True)
             df.insert(0, "STT", range(1, len(df) + 1))
@@ -691,22 +689,11 @@ def show():
             df["Thanh"] = df["Thanh"].apply(lambda x: "" if pd.isna(x) else f"{int(x):,}")
             df["Kg"] = df["Kg"].apply(lambda x: "" if pd.isna(x) else f"{x:,.0f}")
             df["M³"] = df["M³"].apply(lambda x: "" if pd.isna(x) else f"{x:.3f}")
-            df["Đơn giá"] = df["Đơn giá"].apply(
-                lambda x: "" if pd.isna(x) else f"{x:,.0f}"
-            )
-
-            df["Thành tiền"] = df["Thành tiền"].apply(
-                lambda x: "" if pd.isna(x) else f"{x:,.0f}"
-            )
 
             tong_kg = pd.to_numeric(df["Kg"].astype(str).str.replace(",", ""), errors="coerce").fillna(0).sum()
             tong_thanh = pd.to_numeric(df["Thanh"].astype(str).str.replace(",", ""), errors="coerce").fillna(0).sum()
             tong_m3 = pd.to_numeric(df["M³"], errors="coerce").fillna(0).sum()
 
-            tong_tien = pd.to_numeric(
-                df["Thành tiền"].astype(str).str.replace(",", ""),
-                errors="coerce"
-            ).fillna(0).sum()
 
             df.loc[len(df)] = {
                 "STT": "",
@@ -714,6 +701,7 @@ def show():
                 "Số phiếu": "",
                 "Khách hàng": "",
                 "Tên gỗ": "TỔNG CỘNG",
+                "Kiểu tính": "",
                 "Dày": "",
                 "Rộng": "",
                 "Dài": "",
@@ -721,9 +709,7 @@ def show():
                 "Thanh": f"{tong_thanh:,.0f}" if tong_thanh else "",
                 "M³": f"{tong_m3:.3f}" if tong_m3 else "",
                 "Ngày vào hầm": "",
-                "Ngày ra hầm": "",
-                "Đơn giá": "",
-                "Thành tiền": f"{tong_tien:,.0f}" if tong_tien else ""
+                "Ngày ra hầm": ""
             }
             pdf = tao_pdf_kho_kho(df, ten_kh, ten_go)
 
