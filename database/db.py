@@ -113,6 +113,21 @@ def tao_database():
     """)
 
     # =========================
+    # PHÂN LOẠI GỖ
+    # =========================
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS phan_loai_go(
+
+            id SERIAL PRIMARY KEY,
+
+            ten VARCHAR(255) NOT NULL,
+
+            hien_thi BOOLEAN DEFAULT TRUE
+
+        )
+    """)
+
+    # =========================
     # CHI TIẾT PHIẾU
     # =========================
     cur.execute("""
@@ -234,21 +249,6 @@ def tao_database():
             FOREIGN KEY(chi_tiet_phieu_nhap_id)
                 REFERENCES chi_tiet_phieu_nhap(id)
                 ON DELETE CASCADE
-
-        )
-    """)
-
-    # =========================
-    # PHÂN LOẠI GỖ
-    # =========================
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS phan_loai_go(
-
-            id SERIAL PRIMARY KEY,
-
-            ten VARCHAR(255) NOT NULL,
-
-            hien_thi BOOLEAN DEFAULT TRUE
 
         )
     """)
