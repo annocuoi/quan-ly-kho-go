@@ -4555,3 +4555,123 @@ def hoan_kho_phieu_xuat(phieu_xuat_id):
 
     conn.commit()
     close_connection(conn)
+
+def lay_bao_cao_xuat(
+    tu_ngay=None,
+    den_ngay=None,
+    khach_hang_id=None,
+    ten_go=None,
+    loai_go_id=None,
+    loai_nhap=None
+):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    sql = """
+        SELECT
+
+            px.ngay,
+
+            px.so_phieu,
+
+            kh.ten AS khach_hang,
+
+            lg.ten AS ten_go,
+
+            kp.day,
+            kp.rong,
+            kp.dai,
+
+            pl.ten AS phan_loai,
+
+            pn.loai_nhap,
+
+            ctx.so_thanh,
+
+            CASE
+                WHEN lg.kieu_tinh='TRONG_LUONG'
+                THEN ctx.so_luong
+                ELSE NULL
+            END AS kg,
+
+            CASE
+                WHEN lg.kieu_tinh='M3'
+                THEN ctx.so_luong
+                ELSE NULL
+            END AS m3,
+
+            ctx.don_gia_ban,
+
+            ctx.thanh_tien
+
+        FROM chi_tiet_phieu_xuat ctx
+
+        JOIN phieu_xuat px
+            ON ctx.phieu_xuat_id = px.id
+
+        JOIN kho_phan_loai kp
+            ON ctx.kho_phan_loai_id = kp.id
+
+        JOIN chi_tiet_phieu_nhap ct
+            ON kp.chi_tiet_phieu_nhap_id = ct.id
+
+        JOIN loai_go lg
+            ON ct.loai_go_id = lg.id
+
+        LEFT JOIN phan_loai_go pl
+            ON kp.phan_loai_go_id = pl.id
+
+        JOIN phieu_nhap pn
+            ON ct.phieu_nhap_id = pn.id
+
+        JOIN khach_hang kh
+            ON px.khach_hang_id = kh.id
+
+        WHERE 1=1
+    """
+
+    params = []
+
+    if tu_ngay:
+        sql += " AND DATE(px.ngay) >= %s"
+        params.append(tu_ngay)
+
+    if den_ngay:
+        sql += " AND DATE(px.ngay) <= %s"
+        params.append(den_ngay)
+
+    if khach_hang_id:
+        sql += " AND kh.id=%s"
+        params.append(khach_hang_id)
+
+    if ten_go:
+        sql += " AND lg.ten=%s"
+        params.append(ten_go)
+
+    if loai_go_id:
+        sql += " AND lg.id=%s"
+        params.append(loai_go_id)
+
+    if loai_nhap == "TUOI":
+        sql += " AND pn.loai_nhap='TUOI'"
+
+    elif loai_nhap == "KHO":
+        sql += " AND pn.loai_nhap='KHO'"
+
+    sql += """
+
+        ORDER BY
+
+            px.ngay DESC,
+            px.so_phieu DESC
+
+    """
+
+    cur.execute(sql, tuple(params))
+
+    ds = cur.fetchall()
+
+    close_connection(conn)
+
+    return ds

@@ -1039,12 +1039,32 @@ def show():
         st.header("📋 Lịch sử phiếu nhập")
         loc_loai = st.radio("Loại phiếu", ["Tất cả", "🌲 Hàng tươi", "🪵 Hàng khô"], horizontal=True)
 
+        tim_kiem = st.text_input(
+            "🔍 Tìm kiếm",
+            placeholder="Muốn kiếm gì kiếm..."
+        ).strip().lower()
+
         if loc_loai == "🌲 Hàng tươi":
             ds = lay_ds_phieu_nhap("TUOI")
         elif loc_loai == "🪵 Hàng khô":
             ds = lay_ds_phieu_nhap("KHO")
         else:
             ds = lay_ds_phieu_nhap()
+
+        if tim_kiem:
+            tim = tim_kiem.lower()
+
+            ds = [
+                row for row in ds
+                if (
+                    tim in str(row.get("so_phieu", "")).lower()
+                    or tim in str(row.get("ngay", "")).lower()
+                    or tim in str(row.get("loai_nhap", "")).lower()
+                    or tim in str(row.get("khach_hang", "")).lower()
+                    or tim in f'{row.get("tong_tien", 0):,.0f}'.lower()
+                    or tim in str(row.get("tong_tien", "")).lower()
+                )
+            ]
 
         if len(ds) == 0:
             st.info("Chưa có phiếu.")
