@@ -19,8 +19,9 @@ def show():
 
     st.header("📊 Báo cáo")
 
-    tab_nhap, tab_ham = st.tabs([
+    tab_nhap, tab_xuat, tab_ham = st.tabs([
         "📥 Nhập hàng",
+        "🚚 Xuất hàng",
         "🔥 Lịch sử hầm sấy"
     ])
 
@@ -286,6 +287,21 @@ def show():
                     use_container_width=True,
                     hide_index=True
                 )
+
+    with tab_xuat:
+
+        st.subheader("🚚 Báo cáo xuất hàng")
+
+        st.markdown(
+            """
+            ### 🚧 Đang phát triển
+
+            Chức năng **Báo cáo xuất hàng** đang được hoàn thiện.
+
+            Vui lòng quay lại ở phiên bản tiếp theo.
+            """
+        )
+
 
     with tab_ham:
 

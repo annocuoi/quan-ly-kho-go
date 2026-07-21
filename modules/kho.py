@@ -96,25 +96,34 @@ def chon_lo_hang_mua():
     return lua_chon[chon]
 
 def hien_thi_thong_tin_lo(lo):
+
     st.divider()
+
     st.write(f"**Phiếu:** {lo['so_phieu']}")
     st.write(f"**Khách:** {lo['khach_hang']}")
-    st.write(f"**Loại gỗ:** {lo['ten']}")
-    if lo["kieu_tinh"] == "M3":
+
+    if lo["kg"] is not None:
+
+        st.write(f"**Loại gỗ:** {lo['ten']}")
+
+    else:
+
         st.write(
             f"**Loại gỗ:** {lo['ten']} "
             f"({int(lo['day'])} × {int(lo['rong'])} × {int(lo['dai'])})"
         )
-    else:
-        st.write(f"**Loại gỗ:** {lo['ten']}")
-
 
     if lo["kg"] is not None:
-        st.info(f"Còn {float(lo['kg']):,.0f} kg")
-    else:
-        st.info(f"Còn {int(lo['thanh']):,} thanh | {lo['m3']:.3f} m³")
-    st.divider()
 
+        st.info(f"Còn {float(lo['kg']):,.0f} kg")
+
+    else:
+
+        st.info(
+            f"Còn {int(lo['thanh']):,} thanh | {lo['m3']:.3f} m³"
+        )
+
+    st.divider()
 # Bọc fragment chuẩn để cô lập toàn bộ logic nhập liệu, thêm và xóa
 @st.fragment()
 def nhap_phan_loai(lo):
@@ -652,18 +661,19 @@ def show():
                         )
 
             ds = lay_kho_kho(khach_hang_id, loai_go_id)
+
             if len(ds) == 0:
                 st.info("Kho khô đang trống.")
                 return
 
             df = pd.DataFrame(ds)
+
             df.columns = [
                 "ID",
                 "Ngày nhập",
                 "Số phiếu",
                 "Khách hàng",
                 "Tên gỗ",
-                "Kiểu tính",
                 "Dày",
                 "Rộng",
                 "Dài",
@@ -673,27 +683,60 @@ def show():
                 "Ngày vào hầm",
                 "Ngày ra hầm"
             ]
+
             df.drop(columns=["ID"], inplace=True)
             df.insert(0, "STT", range(1, len(df) + 1))
+
             df["Ngày nhập"] = pd.to_datetime(df["Ngày nhập"]).dt.strftime("%d/%m/%Y")
 
             VN = ZoneInfo("Asia/Ho_Chi_Minh")
-            ngay_vao = pd.to_datetime(df["Ngày vào hầm"]).dt.tz_localize("UTC").dt.tz_convert(VN)
-            ngay_ra = pd.to_datetime(df["Ngày ra hầm"]).dt.tz_localize("UTC").dt.tz_convert(VN)
+
+            ngay_vao = (
+                pd.to_datetime(df["Ngày vào hầm"])
+                .dt.tz_localize("UTC")
+                .dt.tz_convert(VN)
+            )
+
+            ngay_ra = (
+                pd.to_datetime(df["Ngày ra hầm"])
+                .dt.tz_localize("UTC")
+                .dt.tz_convert(VN)
+            )
+
             df["Ngày vào hầm"] = ngay_vao.dt.strftime("%d/%m/%Y %H:%M")
             df["Ngày ra hầm"] = ngay_ra.dt.strftime("%d/%m/%Y %H:%M")
 
             for c in ["Dày", "Rộng", "Dài"]:
-                df[c] = df[c].apply(lambda x: "" if pd.isna(x) else int(x))
+                df[c] = df[c].apply(
+                    lambda x: "" if pd.isna(x) else int(x)
+                )
 
-            df["Thanh"] = df["Thanh"].apply(lambda x: "" if pd.isna(x) else f"{int(x):,}")
-            df["Kg"] = df["Kg"].apply(lambda x: "" if pd.isna(x) else f"{x:,.0f}")
-            df["M³"] = df["M³"].apply(lambda x: "" if pd.isna(x) else f"{x:.3f}")
+            df["Thanh"] = df["Thanh"].apply(
+                lambda x: "" if pd.isna(x) else f"{int(x):,}"
+            )
 
-            tong_kg = pd.to_numeric(df["Kg"].astype(str).str.replace(",", ""), errors="coerce").fillna(0).sum()
-            tong_thanh = pd.to_numeric(df["Thanh"].astype(str).str.replace(",", ""), errors="coerce").fillna(0).sum()
-            tong_m3 = pd.to_numeric(df["M³"], errors="coerce").fillna(0).sum()
+            df["Kg"] = df["Kg"].apply(
+                lambda x: "" if pd.isna(x) else f"{x:,.0f}"
+            )
 
+            df["M³"] = df["M³"].apply(
+                lambda x: "" if pd.isna(x) else f"{x:.3f}"
+            )
+
+            tong_kg = pd.to_numeric(
+                df["Kg"].astype(str).str.replace(",", ""),
+                errors="coerce"
+            ).fillna(0).sum()
+
+            tong_thanh = pd.to_numeric(
+                df["Thanh"].astype(str).str.replace(",", ""),
+                errors="coerce"
+            ).fillna(0).sum()
+
+            tong_m3 = pd.to_numeric(
+                df["M³"],
+                errors="coerce"
+            ).fillna(0).sum()
 
             df.loc[len(df)] = {
                 "STT": "",
@@ -701,7 +744,6 @@ def show():
                 "Số phiếu": "",
                 "Khách hàng": "",
                 "Tên gỗ": "TỔNG CỘNG",
-                "Kiểu tính": "",
                 "Dày": "",
                 "Rộng": "",
                 "Dài": "",
@@ -711,11 +753,14 @@ def show():
                 "Ngày vào hầm": "",
                 "Ngày ra hầm": ""
             }
+
             pdf = tao_pdf_kho_kho(df, ten_kh, ten_go)
 
             buffer = io.BytesIO()
+
             with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
                 df.to_excel(writer, index=False, sheet_name="Kho khô")
+
             buffer.seek(0)
 
             c1, c2 = st.columns(2)

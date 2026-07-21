@@ -2188,7 +2188,6 @@ def lay_kho_kho(
             kh.ten AS khach_hang,
 
             lg.ten,
-            lg.kieu_tinh,
 
             lg.day,
             lg.rong,
