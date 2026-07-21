@@ -293,27 +293,58 @@ def show():
                 st.session_state[key_da_load] = True
 
         col1, col2 = st.columns(2)
+
         with col1:
             so_phieu = phieu_sua["so_phieu"] if phieu_sua else lay_so_phieu_xuat_moi()
             st.text_input("Số phiếu", value=so_phieu, disabled=True)
+
         with col2:
             ngay_mac_dinh = phieu_sua["ngay"].date() if phieu_sua else None
             ngay = st.date_input("Ngày xuất", value=ngay_mac_dinh)
 
         ds_kh = lay_ds_khach_hang()
-        index_kh = next((i for i, x in enumerate(ds_kh) if x["id"] == phieu_sua["khach_hang_id"]), 0) if phieu_sua else 0
-        kh = st.selectbox("Khách hàng", ds_kh, index=index_kh, format_func=lambda x: x["ten"])
 
-        if "kh_xuat" not in st.session_state: st.session_state.kh_xuat = kh["id"]
-        if st.session_state.get("sua_phieu_xuat") is None and st.session_state.kh_xuat != kh["id"]:
+        if not ds_kh:
+            st.warning("Chưa có khách hàng.")
+            st.stop()
+
+        index_kh = (
+            next(
+                (i for i, x in enumerate(ds_kh) if x["id"] == phieu_sua["khach_hang_id"]),
+                0
+            )
+            if phieu_sua
+            else 0
+        )
+
+        kh = st.selectbox(
+            "Khách hàng",
+            ds_kh,
+            index=index_kh,
+            format_func=lambda x: x["ten"]
+        )
+
+        if "kh_xuat" not in st.session_state:
+            st.session_state.kh_xuat = kh["id"]
+
+        if (
+            st.session_state.get("sua_phieu_xuat") is None
+            and st.session_state.kh_xuat != kh["id"]
+        ):
             st.session_state.kh_xuat = kh["id"]
             st.session_state.ds_xuat = []
             st.rerun()
 
-        ghi_chu = st.text_area("Ghi chú", value=(phieu_sua["ghi_chu"] if phieu_sua else ""))
+        ghi_chu = st.text_area(
+            "Ghi chú",
+            value=(phieu_sua["ghi_chu"] if phieu_sua else "")
+        )
+
         st.divider()
 
-        ds_kho = lay_kho_da_phan_loai(khach_hang_id=kh["id"])
+        ds_kho = lay_kho_da_phan_loai(
+            khach_hang_id=kh["id"]
+        )
 
         if ds_kho:
             df_sua = None
