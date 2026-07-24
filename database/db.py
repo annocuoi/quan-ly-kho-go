@@ -3,6 +3,7 @@ from psycopg2 import pool
 from psycopg2.extras import RealDictCursor
 from config import DATABASE
 from decimal import Decimal
+from datetime import datetime
 
 connection_pool = pool.SimpleConnectionPool(
     minconn=1,
@@ -4062,6 +4063,10 @@ def luu_phieu_xuat(
     if not ds_hang:
         raise Exception("Phiếu xuất chưa có mặt hàng.")
 
+    # Đảm bảo ngay không bị None hoặc rỗng
+    if not ngay:
+        ngay = datetime.now()
+
     conn = get_connection()
     cur = conn.cursor()
 
@@ -4111,16 +4116,20 @@ def luu_phieu_xuat(
             if kho is None:
                 raise Exception("Không tìm thấy lô gỗ.")
 
-            if item["so_luong"] <= 0:
+            # Chuyển đổi dữ liệu số thanh/số lượng an toàn
+            so_thanh_xuat = int(item.get("so_thanh") or 0)
+            so_luong_xuat = float(item.get("so_luong") or 0)
+
+            if so_luong_xuat <= 0:
                 raise Exception("Số lượng xuất không hợp lệ.")
 
-            if item["so_thanh"] < 0:
+            if so_thanh_xuat < 0:
                 raise Exception("Số thanh xuất không hợp lệ.")
 
-            if item["so_luong"] > kho["so_luong"]:
+            if so_luong_xuat > float(kho["so_luong"] or 0):
                 raise Exception("Số lượng xuất vượt tồn kho.")
 
-            if kho["so_thanh"] is not None and item["so_thanh"] > kho["so_thanh"]:
+            if kho["so_thanh"] is not None and so_thanh_xuat > kho["so_thanh"]:
                 raise Exception("Số thanh xuất vượt tồn kho.")
 
             # Ghi chi tiết phiếu xuất
@@ -4137,8 +4146,8 @@ def luu_phieu_xuat(
             """, (
                 phieu_xuat_id,
                 item["kho_phan_loai_id"],
-                item["so_luong"],
-                item["so_thanh"],
+                so_luong_xuat,
+                so_thanh_xuat,
                 item.get("don_gia_ban"),
                 item.get("thanh_tien")
             ))
@@ -4156,8 +4165,8 @@ def luu_phieu_xuat(
                     END
                 WHERE id=%s
             """, (
-                item["so_luong"],
-                item["so_thanh"],
+                so_luong_xuat,
+                so_thanh_xuat,
                 item["kho_phan_loai_id"]
             ))
 
@@ -4176,7 +4185,7 @@ def luu_phieu_xuat(
             VALUES(%s,%s,%s,%s,%s,%s)
         """, (
             khach_hang_id,
-            ngay,
+            ngay,  # Đã được kiểm tra không NULL ở đầu hàm
             "CONG_SAY",
             tong_tien,
             phieu_xuat_id,
@@ -4191,7 +4200,6 @@ def luu_phieu_xuat(
 
     finally:
         close_connection(conn)
-
 def lay_ds_phieu_xuat(
     tu_ngay=None,
     den_ngay=None,
