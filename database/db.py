@@ -2766,7 +2766,14 @@ def lay_kho_da_phan_loai(
 
     if khach_hang_id is not None:
 
-        sql += " AND kh.id=%s"
+        sql += """
+            AND (
+                (pn.loai_nhap = 'TUOI' AND kh.id = %s)
+                OR
+                (pn.loai_nhap = 'KHO')
+            )
+        """
+
         params.append(khach_hang_id)
 
     if ten_go is not None:
@@ -2815,6 +2822,7 @@ def lay_kho_da_phan_loai(
     close_connection(conn)
 
     return data
+
 def lay_ds_thu_hoi_ham():
 
     conn = get_connection()
