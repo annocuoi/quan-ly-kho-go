@@ -30,8 +30,8 @@ def tao_pdf_kho_tuoi(
     doc = SimpleDocTemplate(
         buffer,
         pagesize=landscape(A4),
-        leftMargin=10,
-        rightMargin=10,
+        leftMargin=35,
+        rightMargin=95,
         topMargin=15,
         bottomMargin=15
     )

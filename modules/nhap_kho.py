@@ -79,7 +79,13 @@ registerFontFamily(
 def tao_pdf(phieu, rows):
     buffer = io.BytesIO()
 
-    doc = SimpleDocTemplate(buffer)
+    doc = SimpleDocTemplate(
+        buffer,
+        leftMargin=50,
+        rightMargin=50,
+        topMargin=40,
+        bottomMargin=40
+    )
     styles = getSampleStyleSheet()
 
     styles["Title"].fontName = "DejaVu-Bold"
@@ -277,6 +283,8 @@ def tao_pdf(phieu, rows):
         ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
 
     ]))
+
+    table.hAlign = "LEFT"
 
     elements.append(table)
 
@@ -539,7 +547,11 @@ def show():
 
             c1, c2, c3 = st.columns(3)
             with c1: st.text_input("Số phiếu", value=so_phieu, disabled=True)
-            with c2: ngay = st.date_input("Ngày")
+            with c2:
+                ngay = st.date_input(
+                    "Ngày",
+                    format="DD/MM/YYYY"
+                )
             with c3:
                 ds_kh = lay_ds_khach_hang()
                 if not ds_kh: st.warning("Chưa có khách hàng."); st.stop()

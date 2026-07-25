@@ -213,15 +213,53 @@ def show():
             })
 
         df = df.rename(columns={
-            "id": "Mã", "ten": "Tên gỗ", "kieu_tinh": "Kiểu tính", "day": "Dày", "rong": "Rộng", "dai": "Dài",
-            "phan_loai": "Phân loại", "so_thanh": "Số thanh", "kg": "Kg", "m3": "m³", "don_gia_ban": "Đơn giá", "thanh_tien": "Thành tiền"
+            "ten": "Tên gỗ",
+            "day": "Dày",
+            "rong": "Rộng",
+            "dai": "Dài",
+            "phan_loai": "Phân loại gỗ",
+            "so_thanh": "Số thanh",
+            "kg": "Kg",
+            "m3": "M³",
+            "don_gia_ban": "Đơn giá",
+            "thanh_tien": "Thành tiền"
         })
 
+        # Gộp quy cách
+        df["Quy cách"] = df.apply(
+            lambda x: (
+                f'{int(x["Dày"])}x{int(x["Rộng"])}x{int(x["Dài"])}'
+                if pd.notna(x["Dày"])
+                else ""
+            ),
+            axis=1
+        )
+
+        # Chỉ giữ các cột cần hiển thị
+        df = df[
+            [
+                "Tên gỗ",
+                "Phân loại gỗ",
+                "Quy cách",
+                "Số thanh",
+                "Kg",
+                "M³",
+                "Đơn giá",
+                "Thành tiền"
+            ]
+        ]
+
         tong = {
-            "Mã": "", "Tên gỗ": "TỔNG CỘNG", "Kiểu tính": "", "Dày": "", "Rộng": "", "Dài": "", "Phân loại": "",
-            "Số thanh": df["Số thanh"].fillna(0).sum(), "Kg": df["Kg"].fillna(0).sum(), "m³": df["m³"].fillna(0).sum(),
-            "Đơn giá": "", "Thành tiền": df["Thành tiền"].fillna(0).sum()
+            "Tên gỗ": "TỔNG CỘNG",
+            "Phân loại gỗ": "",
+            "Quy cách": "",
+            "Số thanh": df["Số thanh"].fillna(0).sum(),
+            "Kg": df["Kg"].fillna(0).sum(),
+            "M³": df["M³"].fillna(0).sum(),
+            "Đơn giá": "",
+            "Thành tiền": df["Thành tiền"].fillna(0).sum()
         }
+
         df.loc[len(df)] = tong
         df = df.fillna("")
 
@@ -263,6 +301,8 @@ def show():
         # --- CHUẨN HÓA LOGIC LOAD DỮ LIỆU SỬA PHIẾU CŨ ĐỒNG BỘ GIAO DIỆN ---
         if st.session_state.get("sua_phieu_xuat") is not None:
             phieu_sua = lay_phieu_xuat(st.session_state["sua_phieu_xuat"])
+            st.write(phieu_sua)
+            st.stop()
             st.info(f"✏️ Đang sửa phiếu số: {phieu_sua['so_phieu']}")
             
             if st.button("❌ Thoát chế độ sửa phiếu (Xuất mới)", type="secondary"):
@@ -368,7 +408,6 @@ def show():
                 "Lô gỗ",
                 ds_kho,
                 index=index_mac_dinh_lo,
-                key="lo_xuat",
                 format_func=lambda x: (
                     f'{"📦 Hàng mua" if x["loai_nhap"]=="KHO" else "🌲 Gia công"} | {x["ten"]} | {x["phan_loai"]} | {int(x["day"])}x{int(x["rong"])}x{int(x["dai"])}'
                     if x["kieu_tinh"] == "M3" else
@@ -406,11 +445,15 @@ def show():
             val_so_luong = 0.0
             val_don_gia = float(lo["don_gia"]) if lo["loai_nhap"] == "KHO" else 0.0
 
+            dang_sua_dung_lo = (
+                df_sua is not None
+                and df_sua["kho_phan_loai_id"] == lo["kho_phan_loai_id"]
+            )
+
             if df_sua is not None:
                 val_so_thanh = int(df_sua["so_thanh"])
                 val_so_luong = float(df_sua["so_luong"])
-                if "don_gia_ban" in df_sua:
-                    val_don_gia = float(df_sua["don_gia_ban"])
+                val_don_gia = float(df_sua.get("don_gia_ban", 0.0))
 
             co_the_thao_tac = True
             if kieu_tinh_hien_tai == "M3":
@@ -418,7 +461,9 @@ def show():
                     st.warning("Lô gỗ này trong kho đã được chọn hết!")
                     co_the_thao_tac = False
                 else:
-                    max_thanh = int(thanh_con) + (int(df_sua["so_thanh"]) if df_sua else 0)
+                    max_thanh = int(thanh_con) + (
+                        int(df_sua["so_thanh"]) if dang_sua_dung_lo else 0
+                    )
                     so_thanh = st.number_input("Số thanh xuất", min_value=1, max_value=max_thanh, value=min(val_so_thanh, max_thanh), step=1)
                     so_luong = float(lo["m3"]) * so_thanh / float(lo["thanh"])
             else:
@@ -427,11 +472,20 @@ def show():
                     co_the_thao_tac = False
                 else:
                     so_thanh = 0
-                    max_kg = float(kg_con) + (float(df_sua["so_luong"]) if df_sua else 0.0)
+                    max_kg = float(kg_con) + (
+                        float(df_sua["so_luong"]) if dang_sua_dung_lo else 0.0
+                    )
                     so_luong = st.number_input("Kg xuất", min_value=0.0, max_value=max_kg, value=min(val_so_luong, max_kg), step=1.0)
             
-            if lo["loai_nhap"] == "KHO":
-                don_gia_ban = st.number_input("Đơn giá bán", min_value=0.0, value=val_don_gia, step=1000.0)
+            loai_nhap_hien_tai = lo["loai_nhap"]
+
+            if loai_nhap_hien_tai == "KHO":
+                don_gia_ban = st.number_input(
+                    "Đơn giá bán",
+                    min_value=0.0,
+                    value=val_don_gia,
+                    step=1000.0
+                )
             else:
                 don_gia_ban = 0.0
 
@@ -451,7 +505,7 @@ def show():
                             df_sua["loai_nhap"] = lo["loai_nhap"]
                             df_sua["kieu_tinh"] = kieu_tinh_hien_tai
                             
-                            if lo["loai_nhap"] == "KHO":
+                            if loai_nhap_hien_tai == "KHO":
                                 df_sua["don_gia_ban"] = don_gia_ban
                                 df_sua["thanh_tien"] = so_luong * don_gia_ban
                             else:
@@ -562,7 +616,6 @@ def show():
 
                         st.session_state.ds_xuat = []
                         st.session_state.dong_sua_xuat = None
-                        if "lo_xuat" in st.session_state: del st.session_state["lo_xuat"]
                         st.success("Đã xử lý phiếu xuất thành công.")
                         st.rerun()
                     except Exception as e:
