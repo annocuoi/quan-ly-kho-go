@@ -171,6 +171,12 @@ def tao_pdf(phieu, rows):
     return buffer
 
 def show():
+
+    if "dong_sua_xuat" not in st.session_state:
+        st.session_state.dong_sua_xuat = None
+    if "xac_nhan_xoa_xuat" not in st.session_state:
+        st.session_state.xac_nhan_xoa_xuat = None
+        
     if st.session_state.get("xem_phieu_xuat") is not None:
         phieu = lay_phieu_xuat(st.session_state.xem_phieu_xuat)
         ct = lay_chi_tiet_phieu_xuat(st.session_state.xem_phieu_xuat)
