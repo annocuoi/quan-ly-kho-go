@@ -176,7 +176,7 @@ def show():
         st.session_state.dong_sua_xuat = None
     if "xac_nhan_xoa_xuat" not in st.session_state:
         st.session_state.xac_nhan_xoa_xuat = None
-
+        
     if st.session_state.get("xem_phieu_xuat") is not None:
         phieu = lay_phieu_xuat(st.session_state.xem_phieu_xuat)
         ct = lay_chi_tiet_phieu_xuat(st.session_state.xem_phieu_xuat)
@@ -203,16 +203,12 @@ def show():
                 kg, thanh, m3 = f'{dong["kg"]:,.0f}', "", ""
 
             rows.append({
-                "STT": i, 
-                "Loại gỗ": ten_go, 
-                "Phân loại": dong["phan_loai"],
+                "STT": i, "Loại gỗ": ten_go, "Phân loại": dong["phan_loai"],
                 "Dày": "" if dong["day"] is None else int(dong["day"]),
                 "Rộng": "" if dong["rong"] is None else int(dong["rong"]),
                 "Dài": "" if dong["dai"] is None else int(dong["dai"]),
-                "Kg": kg, 
-                "Thanh": thanh, 
-                "M³": m3,
-                "Đơn giá": f'{(dong.get("don_gia_ban") or 0):,.0f}',
+                "Kg": kg, "Thanh": thanh, "M³": m3,
+                "Đơn giá": f'{(dong.get("don_gia") or 0):,.0f}',
                 "Thành tiền": f'{(dong.get("thanh_tien") or 0):,.0f} đ'
             })
 
